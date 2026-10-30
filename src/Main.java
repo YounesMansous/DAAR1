@@ -18,16 +18,14 @@ import affichage.Affichage;
 
 import ast.interfaces.AstI;
 
-import automate.Afd;
-import automate.Afn;
-import automate.AstToAfnVisitor;
-import automate.Determinisation;
-import automate.Minimisation;
+import automate.ConstructionAutomate;
 
 import parser.Parser;
 
-import experimentation.AfdMatcher;
 import experimentation.FileSearcher;
+import experimentation.Matcher;
+import experimentation.MatcherNaif;
+import experimentation.MatcherUnePasse;
 import experimentation.ResultatRecherche;
 
 /**
@@ -54,8 +52,12 @@ public class Main {
         + "  -c        affiche seulement le nombre de lignes trouvées\n"
         + "  -n        préfixe chaque ligne par son numéro (12:ligne)\n"
         + "  --debug   affiche l'AST et les automates sur la sortie d'erreur\n"
-        + "  --stats   affiche les temps de construction et de recherche"
-        + " sur la sortie d'erreur\n"
+        + "  --stats   affiche le matcher, la taille des automates et les"
+        + " temps de construction et de recherche sur la sortie d'erreur\n"
+        + "  --matcher=unepasse  recherche en une passe avec l'automate de"
+        + " .*R (par défaut)\n"
+        + "  --matcher=naif      relance l'automate de R depuis chaque"
+        + " position\n"
         + "  --        termine les options (pour un motif qui commence par -)";
 
     /**
@@ -111,6 +113,7 @@ public class Main {
         boolean numeroter = false;
         boolean debug = false;
         boolean stats = false;
+        String typeMatcher = "unepasse";
 
         List<String> positionnels = new ArrayList<>();
         boolean finOptions = false;
@@ -128,6 +131,16 @@ public class Main {
             }
             else if (arg.equals("--stats")) {
                 stats = true;
+            }
+            else if (arg.startsWith("--matcher=")) {
+
+                typeMatcher = arg.substring("--matcher=".length());
+
+                if (!typeMatcher.equals("naif")
+                        && !typeMatcher.equals("unepasse")) {
+                    return erreur(err, "matcher inconnu : " + typeMatcher
+                        + " (naif ou unepasse)");
+                }
             }
             else if (arg.startsWith("--")) {
                 return erreur(err, "option inconnue : " + arg);
@@ -179,26 +192,39 @@ public class Main {
                 "regex invalide « " + regex + " » : " + e.getMessage());
         }
 
-        Afn afn = ast.accept(new AstToAfnVisitor());
-        Afd afd = new Determinisation(afn).convertir();
-        Afd afdMinimal = new Minimisation(afd).minimiser();
+        // Le matcher une passe travaille sur l'automate de .*R
+        boolean unePasse = typeMatcher.equals("unepasse");
+
+        AstI astUtilise = unePasse ? MatcherUnePasse.envelopper(ast) : ast;
+
+        ConstructionAutomate automate = new ConstructionAutomate(astUtilise);
+
+        Matcher matcher = unePasse
+            ? new MatcherUnePasse(automate.getCompile())
+            : new MatcherNaif(automate.getCompile());
 
         long finConstruction = System.nanoTime();
 
         if (debug) {
-            Affichage.afficherAst(ast, err);
-            Affichage.afficherAutomate(afn, "AFN-EPSILON", err);
-            Affichage.afficherAutomate(afd, "AFD", err);
-            Affichage.afficherAutomate(afdMinimal, "AFD MINIMAL", err);
-            Affichage.afficherBilan(regex, afn, afd, afdMinimal, err);
+            Affichage.afficherAst(astUtilise, err);
+            Affichage.afficherAutomate(
+                automate.getAfn(), "AFN-EPSILON", err);
+            Affichage.afficherAutomate(automate.getAfd(), "AFD", err);
+            Affichage.afficherAutomate(
+                automate.getAfdMinimal(), "AFD MINIMAL", err);
+            Affichage.afficherBilan(
+                unePasse ? ".*(" + regex + ")" : regex,
+                automate.getAfn(),
+                automate.getAfd(),
+                automate.getAfdMinimal(),
+                err);
         }
 
         // ======================================
         // 3. RECHERCHE
         // ======================================
 
-        FileSearcher recherche =
-            new FileSearcher(new AfdMatcher(afdMinimal));
+        FileSearcher recherche = new FileSearcher(matcher);
 
         ResultatRecherche resultat;
 
@@ -242,6 +268,18 @@ public class Main {
         }
 
         if (stats) {
+            err.println(
+                "Matcher                    : " + typeMatcher
+                + (unePasse ? " (automate de .*R)" : " (automate de R)"));
+            err.println(
+                "Etats AFN-epsilon          : "
+                + automate.getAfn().getEtats().size());
+            err.println(
+                "Etats AFD                  : "
+                + automate.getAfd().getEtats().size());
+            err.println(
+                "Etats AFD minimal          : "
+                + automate.getAfdMinimal().getEtats().size());
             err.printf(
                 "Construction de l'automate : %.3f ms%n",
                 (finConstruction - debutConstruction) / 1_000_000.0);

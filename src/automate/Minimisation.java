@@ -361,6 +361,13 @@ public class Minimisation {
     // 9. METHODE PRINCIPALE
     // ==========================================
 
+    /**
+     * Minimise l'AFD (algorithme de Moore), puis retire l'état puits.
+     * L'automate renvoyé n'est donc pas complet : une transition
+     * absente signifie qu'aucun état final n'est plus atteignable.
+     *
+     * @return l'AFD minimal, sans état puits
+     */
     public Afd minimiser() {
 
         Afd accessible = supprimerInaccessibles();
@@ -382,6 +389,94 @@ public class Minimisation {
             partitions = nouvelles;
         }
 
-        return construireAfdMinimal(complet, partitions);
+        return retirerPuits(construireAfdMinimal(complet, partitions));
+    }
+
+    // ==========================================
+    // 10. RETIRER L'ETAT PUITS
+    // ==========================================
+
+    // Garde seulement les etats depuis lesquels un etat final est
+    // atteignable (dans un AFD minimal, seul le puits ne l'est pas),
+    // et les transitions entre ces etats. L'etat initial est toujours
+    // garde pour que l'automate reste utilisable.
+    private Afd retirerPuits(Afd automate) {
+
+        // Predecesseurs de chaque etat
+        Map<Etat, List<Etat>> predecesseurs = new HashMap<>();
+
+        for (Map.Entry<Etat, Map<String, Etat>> entree :
+                automate.getTransitions().entrySet()) {
+
+            for (Etat destination : entree.getValue().values()) {
+
+                predecesseurs
+                    .computeIfAbsent(destination, k -> new ArrayList<>())
+                    .add(entree.getKey());
+            }
+        }
+
+        // Parcours a l'envers depuis les etats finaux
+        Set<Etat> utiles = new HashSet<>(automate.getFinaux());
+        Deque<Etat> file = new ArrayDeque<>(automate.getFinaux());
+
+        while (!file.isEmpty()) {
+
+            Etat courant = file.poll();
+
+            for (Etat precedent : predecesseurs.getOrDefault(
+                    courant, Collections.emptyList())) {
+
+                if (utiles.add(precedent)) {
+                    file.add(precedent);
+                }
+            }
+        }
+
+        utiles.add(automate.getInitial());
+
+        Afd resultat = new Afd();
+        resultat.setAlphabet(automate.getAlphabet());
+
+        for (Etat etat : automate.getEtats()) {
+
+            if (utiles.contains(etat)) {
+
+                resultat.ajouterEtat(etat);
+
+                if (automate.getFinaux().contains(etat)) {
+                    resultat.ajouterEtatFinal(etat);
+                }
+            }
+        }
+
+        resultat.setInitial(automate.getInitial());
+
+        for (Map.Entry<Etat, Map<String, Etat>> entree :
+                automate.getTransitions().entrySet()) {
+
+            Etat source = entree.getKey();
+
+            if (!utiles.contains(source)) {
+                continue;
+            }
+
+            for (Map.Entry<String, Etat> sortie :
+                    entree.getValue().entrySet()) {
+
+                if (utiles.contains(sortie.getValue())) {
+
+                    resultat.ajouterTransition(
+                        new Transition(
+                            source,
+                            sortie.getValue(),
+                            sortie.getKey()
+                        )
+                    );
+                }
+            }
+        }
+
+        return resultat;
     }
 }

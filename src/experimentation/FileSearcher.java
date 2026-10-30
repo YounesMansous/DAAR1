@@ -10,12 +10,12 @@ import java.io.IOException;
  */
 public class FileSearcher {
 
-    private final AfdMatcher matcher;
+    private final Matcher matcher;
 
     /**
-     * @param matcher le matcher construit à partir de l'AFD minimal
+     * @param matcher la stratégie de recherche (naïve ou une passe)
      */
-    public FileSearcher(AfdMatcher matcher) {
+    public FileSearcher(Matcher matcher) {
         this.matcher = matcher;
     }
 

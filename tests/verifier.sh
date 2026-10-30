@@ -13,6 +13,8 @@
 #   kmp       ... --algo=kmp R F (motifs littéraux seuls)    / grep -E R F
 #   -n        ... -n R F (options par défaut)                / grep -n -E R F
 #
+# Le script exporte une locale UTF-8 (LC_ALL) pour grep et pour java.
+#
 # Une comparaison est OK si la sortie standard est identique octet
 # par octet et si le code de sortie (0 ou 1) est le même que grep.
 # Seuls les échecs sont affichés au fil de l'eau, puis un bilan.
@@ -35,13 +37,24 @@ esac
 JAR=egrep-clone.jar
 REGEX=tests/regex.txt
 
-# Locale UTF-8 de la commande de référence : C.UTF-8 sous Linux,
-# en_US.UTF-8 sous macOS
-if locale -a 2>/dev/null | command grep -qiE '^c\.utf-?8$'; then
+# Locale UTF-8, exportée pour grep ET pour java : sans elle, la JVM
+# décode les arguments de la ligne de commande en ASCII
+# (sun.jnu.encoding = ANSI_X3.4-1968), et un motif comme « é »
+# arrive abîmé dans Main. Ce décodage ne peut plus être changé une
+# fois la JVM lancée. On prend C.UTF-8, sinon en_US.UTF-8 (macOS).
+LOCALES=$(locale -a 2>/dev/null)
+
+if printf '%s\n' "$LOCALES" | command grep -qiE '^c\.utf-?8$'; then
     LOCALE=C.UTF-8
-else
+elif printf '%s\n' "$LOCALES" | command grep -qiE '^en_us\.utf-?8$'; then
     LOCALE=en_US.UTF-8
+else
+    echo "ERREUR : ni C.UTF-8 ni en_US.UTF-8 dans « locale -a »" >&2
+    exit 2
 fi
+
+export LC_ALL=$LOCALE
+echo "locale utilisée pour java et grep : $LC_ALL"
 
 if [ ! -f "$JAR" ]; then
     echo "construction de $JAR..." >&2

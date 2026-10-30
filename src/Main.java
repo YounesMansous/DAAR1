@@ -6,6 +6,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
+import java.nio.charset.Charset;
 import java.nio.charset.MalformedInputException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -192,6 +193,8 @@ public class Main {
         String regex = positionnels.get(0);
         String fichier =
             positionnels.size() == 2 ? positionnels.get(1) : "-";
+
+        avertirSiMotifMalDecode(regex, err);
 
         // ======================================
         // 2. CONSTRUCTION DE L'AUTOMATE
@@ -388,6 +391,49 @@ public class Main {
         return Files.newBufferedReader(
             Path.of(fichier),
             StandardCharsets.UTF_8);
+    }
+
+    // Sans locale UTF-8 (LANG vide, LC_ALL=C...), la JVM décode les
+    // arguments de la ligne de commande en ASCII (sun.jnu.encoding) :
+    // chaque octet non ASCII du motif devient le caractère de
+    // remplacement U+FFFD, et la recherche est fausse. Ce décodage ne
+    // peut plus être corrigé une fois la JVM lancée : on prévient
+    // seulement, sur stderr. Un motif non ASCII ou abîmé contient
+    // forcément un caractère de code > 127 (U+FFFD compris).
+    private static void avertirSiMotifMalDecode(
+            String regex,
+            PrintStream err) {
+
+        String encodage = System.getProperty("sun.jnu.encoding", "");
+
+        if (encodage.isEmpty() || estUtf8(encodage)) {
+            return;
+        }
+
+        boolean nonAscii = false;
+
+        for (int i = 0; i < regex.length() && !nonAscii; i++) {
+            nonAscii = regex.charAt(i) > 127;
+        }
+
+        if (nonAscii) {
+            err.println(
+                "Main : attention, les arguments sont décodés en "
+                + encodage + " et non en UTF-8 : les caractères non"
+                + " ASCII du motif ont pu être abîmés.");
+            err.println(
+                "       Lancez le programme dans une locale UTF-8, par"
+                + " exemple : LC_ALL=C.UTF-8 java -jar egrep-clone.jar ...");
+        }
+    }
+
+    private static boolean estUtf8(String encodage) {
+        try {
+            return Charset.forName(encodage).equals(StandardCharsets.UTF_8);
+        }
+        catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 
     // Affiche le message et l'usage sur la sortie d'erreur

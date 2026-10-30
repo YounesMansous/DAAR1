@@ -9,19 +9,26 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * AFD compilé en table de transitions, pour une recherche rapide :
- * aucune String ni HashMap n'est utilisée pendant la lecture.
+ * Cinquième étape du pipeline : l'AFD minimal compilé en table de
+ * transitions, pour les matchers. Aucune String ni HashMap n'est
+ * utilisée pendant la lecture du texte.
  *
- * {@code table[etat][c]} donne l'état atteint en lisant le caractère c :
+ * <p>{@code table[etat][c]} donne l'état atteint en lisant le caractère c :
  * <ul>
  *   <li>colonnes 0 à 255 : caractères de code inférieur à 256 ;</li>
  *   <li>colonne 256 ({@link #COLONNE_AUTRE}) : tout caractère absent
  *       de l'alphabet de la regex (symbole {@link Afd#AUTRE}) ;</li>
  *   <li>{@link #AUCUNE} (-1) : pas de transition.</li>
  * </ul>
- * Un caractère de code supérieur ou égal à 256 qui fait partie de
+ * <p>Un caractère de code supérieur ou égal à 256 qui fait partie de
  * l'alphabet (cas rare, par exemple « ’ » dans la regex) garde sa
- * propre transition dans une petite table de secours triée.
+ * propre transition dans une petite table de secours triée.</p>
+ *
+ * <p>Complexité : construction en O(n · 256 · log s) pour n états et
+ * un alphabet de taille s ; mémoire n × 257 entiers. Une transition
+ * coûte O(1) pour un caractère de code inférieur à 256, et
+ * O(log h) sinon, où h est le nombre de caractères de code
+ * supérieur ou égal à 256 dans la regex.</p>
  */
 public class AfdCompile {
 
@@ -43,6 +50,9 @@ public class AfdCompile {
     /**
      * Compile un AFD (en général l'AFD minimal).
      * Les états sont numérotés dans l'ordre de {@code afd.getEtats()}.
+     * Pour chaque état, la colonne d'un caractère absent de l'alphabet
+     * reçoit la transition sur AUTRE (ou AUCUNE si la regex n'a pas
+     * de point).
      *
      * @param afd l'automate à compiler
      */
@@ -89,7 +99,6 @@ public class AfdCompile {
 
             int autre = indice(afd.transition(etat, Afd.AUTRE), indices);
 
-            // Un caractere absent de l'alphabet se comporte comme AUTRE
             for (int c = 0; c < COLONNE_AUTRE; c++) {
 
                 String symbole = String.valueOf((char) c);
@@ -119,7 +128,8 @@ public class AfdCompile {
     }
 
     /**
-     * Transition depuis un état en lisant un caractère.
+     * Transition depuis un état en lisant un caractère, en O(1)
+     * (O(log h) pour un caractère de code supérieur ou égal à 256).
      *
      * @param etat indice de l'état courant
      * @param c    caractère lu
@@ -144,6 +154,8 @@ public class AfdCompile {
     }
 
     /**
+     * Indique si un état est final.
+     *
      * @param etat indice d'un état
      * @return vrai si l'état est final
      */
@@ -151,13 +163,12 @@ public class AfdCompile {
         return finaux[etat];
     }
 
-    /** @return l'indice de l'état initial */
+    /**
+     * Renvoie l'indice de l'état initial.
+     *
+     * @return l'indice de l'état initial
+     */
     public int getInitial() {
         return initial;
-    }
-
-    /** @return le nombre d'états de l'automate compilé */
-    public int getNombreEtats() {
-        return table.length;
     }
 }

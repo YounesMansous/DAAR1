@@ -1,4 +1,3 @@
-
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.FileDescriptor;
@@ -35,14 +34,25 @@ import kmp.Kmp;
  * Clone de egrep : affiche les lignes d'un fichier (ou de l'entrée
  * standard) qui contiennent le motif, exactement comme grep -E.
  *
- * Usage : java -cp bin Main [options] "regex" [fichier]
+ * <p>Usage : {@code java -jar egrep-clone.jar [options] "regex" [fichier]}
+ * (ou {@code java -cp bin Main ...}).</p>
  *
- * La sortie standard ne contient que le résultat (lignes ou nombre) ;
- * --debug, --stats et les messages d'erreur vont sur la sortie d'erreur.
- * Codes de sortie : 0 si au moins une ligne est trouvée, 1 si aucune,
- * 2 en cas d'erreur.
+ * <p>Enchaînement : lecture des options, analyse de la regex
+ * ({@code parser.Parser}), choix de l'algorithme (KMP si le motif est
+ * littéral, sinon automate de R ou de .*R construit par
+ * {@code automate.ConstructionAutomate}), recherche ligne par ligne
+ * ({@code experimentation.FileSearcher}), puis affichage.</p>
+ *
+ * <p>La sortie standard ne contient que le résultat (lignes ou
+ * nombre) ; --debug, --stats et les messages d'erreur vont sur la
+ * sortie d'erreur. Codes de sortie : 0 si au moins une ligne est
+ * trouvée, 1 si aucune, 2 en cas d'erreur.</p>
  */
 public class Main {
+
+    /** Classe utilitaire : tout passe par {@link #main(String[])}. */
+    private Main() {
+    }
 
     private static final int TROUVE = 0;
     private static final int RIEN_TROUVE = 1;
@@ -100,7 +110,10 @@ public class Main {
     }
 
     /**
-     * Exécute la commande sans quitter la JVM.
+     * Exécute la commande sans quitter la JVM. Les erreurs (option
+     * inconnue, regex invalide, fichier introuvable, texte non UTF-8)
+     * ne lèvent pas d'exception : elles sont affichées sur {@code err}
+     * et donnent le code 2.
      *
      * @param args options, regex et fichier éventuel
      * @param out  sortie standard (résultat uniquement)
@@ -427,6 +440,7 @@ public class Main {
         }
     }
 
+    // Vrai si le nom d'encodage désigne UTF-8 (« UTF-8 », « utf8 »...)
     private static boolean estUtf8(String encodage) {
         try {
             return Charset.forName(encodage).equals(StandardCharsets.UTF_8);
@@ -436,7 +450,7 @@ public class Main {
         }
     }
 
-    // Affiche le message et l'usage sur la sortie d'erreur
+    // Affiche le message et l'usage sur la sortie d'erreur ; renvoie 2
     private static int erreur(PrintStream err, String message) {
         err.println("Main : " + message);
         err.println(USAGE);

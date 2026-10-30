@@ -1,8 +1,14 @@
-
 package automate;
 
 import java.util.*;
 
+/**
+ * Automate fini non déterministe avec ε-transitions (AFN-ε),
+ * construit à partir de l'AST par {@link AstToAfnVisitor}.
+ * Un (état, symbole) peut mener à plusieurs états. Les symboles sont
+ * les lettres de la regex, « . » pour le point et "EPSILON" pour
+ * les ε-transitions.
+ */
 public class Afn implements AutomateI<Set<Etat>> {
 
     private List<Etat> etats;
@@ -10,16 +16,11 @@ public class Afn implements AutomateI<Set<Etat>> {
     private Etat initial;
     private Set<Etat> finaux;
 
+    /** Crée un AFN vide, sans état initial. */
     public Afn() {
         this.etats = new ArrayList<>();
         this.transitions = new HashMap<>();
         this.finaux = new HashSet<>();
-    }
-
-    public Afn(Etat initial) {
-        this();
-        this.initial = initial;
-        ajouterEtat(initial);
     }
 
     @Override
@@ -44,6 +45,13 @@ public class Afn implements AutomateI<Set<Etat>> {
             .add(transition.getDestination());
     }
 
+    /**
+     * Destinations depuis un état en lisant un symbole.
+     *
+     * @param source  état de départ
+     * @param symbole lettre, « . » ou "EPSILON"
+     * @return les états atteints (ensemble vide s'il n'y en a pas)
+     */
     public Set<Etat> destinations(Etat source, String symbole) {
         return transitions
             .getOrDefault(source, Collections.emptyMap())

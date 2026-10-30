@@ -4,17 +4,23 @@ import ast.AstFactory;
 import ast.interfaces.AstI;
 
 /**
- * Analyseur syntaxique par descente récursive d'une ERE simplifiée
- * (parenthèses, alternative |, concaténation, étoile *, point .,
- * lettres). Produit l'AST de la regex.
+ * Première étape du pipeline : analyseur syntaxique par descente
+ * récursive d'une ERE simplifiée (parenthèses, alternative |,
+ * concaténation, étoile *, point ., lettres). Produit l'AST de la
+ * regex, que {@code automate.ConstructionAutomate} transforme en
+ * automate.
  *
- * Grammaire :
+ * <p>Grammaire, de la priorité la plus faible à la plus forte :</p>
  * <pre>
  *   expression ::= concat ('|' concat)*
  *   concat     ::= repeat+ | (vide)
  *   repeat     ::= atome '*'*
  *   atome      ::= '(' expression ')' | '.' | lettre
  * </pre>
+ *
+ * <p>Tout autre caractère, y compris {@code + ? [ ] { } ^ $ \}, est
+ * une lettre. Chaque caractère est lu une fois, sans retour
+ * arrière : l'analyse est en O(|R|).</p>
  */
 public class Parser {
 
@@ -22,6 +28,8 @@ public class Parser {
     private int position = 0;
 
     /**
+     * Prépare l'analyse d'une regex.
+     *
      * @param re la regex à analyser
      */
     public Parser(String re){
@@ -32,7 +40,8 @@ public class Parser {
      * Analyse toute la regex.
      *
      * @return la racine de l'AST
-     * @throws RuntimeException si la regex est invalide
+     * @throws RuntimeException si la regex est invalide (parenthèse
+     *         non fermée ou fermante en trop, * ou | mal placé)
      */
     public AstI parse() {
         AstI ast = parseExpression();
@@ -47,17 +56,11 @@ public class Parser {
         return ast;
     }
 
-    /**
-     * Analyse une alternative : concat ('|' concat)*.
-     *
-     * @return l'AST de l'alternative
-     */
-    public AstI parseExpression() {
+    // expression ::= concat ('|' concat)*, associative à gauche
+    private AstI parseExpression() {
         AstI gauche = parseConcat();
 
-        while (position < re.length()
-                && courant() != ')'
-                && courant() == '|') {
+        while (position < re.length() && courant() == '|') {
 
             avancer(); // consomme |
 
@@ -69,14 +72,10 @@ public class Parser {
         return gauche;
     }
 
-    /**
-     * Analyse une concaténation. Si elle est vide (fin de la regex,
-     * « | » ou « ) »), renvoie un nœud mot vide, comme grep -E pour
-     * « », « a| », « |a », « a||b » et « () ».
-     *
-     * @return l'AST de la concaténation
-     */
-    public AstI parseConcat() {
+    // concat ::= repeat+ | (vide). Une concaténation vide (fin de la
+    // regex, « | » ou « ) ») donne un nœud mot vide, comme grep -E
+    // pour « », « a| », « |a », « a||b » et « () ».
+    private AstI parseConcat() {
         if (finDeConcat()) {
             return AstFactory.createVide();
         }
@@ -93,12 +92,8 @@ public class Parser {
         return gauche;
     }
 
-    /**
-     * Analyse un atome suivi d'étoiles éventuelles.
-     *
-     * @return l'AST de la répétition
-     */
-    public AstI parseRepeat() {
+    // repeat ::= atome '*'* ; « a** » donne Repeat(Repeat(a))
+    private AstI parseRepeat() {
         AstI ast = parseAtom();
 
         while (position < re.length() && courant() == '*') {
@@ -109,18 +104,14 @@ public class Parser {
         return ast;
     }
 
-    /**
-     * Analyse un atome : sous-expression parenthésée, point ou lettre.
-     *
-     * @return l'AST de l'atome
-     */
-    public AstI parseAtom(){
+    // atome ::= '(' expression ')' | '.' | lettre
+    private AstI parseAtom(){
         if (position >= re.length()) {
             throw new RuntimeException("Expression invalide : fin inattendue");
         }
         char c = courant();
 
-        // Parenthèse ouvrante : on parse une sous-expression complète
+        // Les parenthèses ne laissent pas de nœud dans l'AST
         if (c == '(') {
             avancer();
 
@@ -134,7 +125,6 @@ public class Parser {
             return interieur;
         }
 
-        // Le point représente le caractère universel
         if (c == '.') {
             avancer();
             return AstFactory.createDot();
@@ -150,18 +140,15 @@ public class Parser {
             throw new RuntimeException("Opérateur inattendu : " + c);
         }
 
-        // Sinon, on considère que c'est un caractère ASCII
         avancer();
         return AstFactory.createChar(c);
     }
 
-    /** Passe au caractère suivant de la regex. */
-    public void avancer(){
+    private void avancer(){
         position++;
     }
 
-    /** @return le caractère courant de la regex */
-    public char courant() {
+    private char courant() {
         return re.charAt(position);
     }
 

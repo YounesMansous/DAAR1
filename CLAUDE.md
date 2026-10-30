@@ -61,7 +61,7 @@ Les deux matchers lisent `ligne.charAt(i)` et la table d'`AfdCompile` : ni `Stri
 - Code et commentaires en français.
 - Java 11 minimum (le code utilise `Path.of` et `Set.of`).
 - Aucune bibliothèque externe : uniquement la bibliothèque standard Java.
-- Javadoc courte sur chaque classe et chaque méthode publique.
+- Javadoc courte sur chaque classe et chaque méthode publique : rôle dans le pipeline pour la classe ; rôle, paramètres, valeur renvoyée et exceptions pour la méthode ; complexité pour les parties algorithmiques. Chaque commentaire Javadoc commence par une phrase de description (javadoc 21 signale « no main description » sinon). Pas de commentaire évident ligne par ligne. `ant doc` doit rester sans avertissement : il échoue au premier.
 
 ## Compilation et lancement
 
@@ -72,7 +72,8 @@ Build avec Ant (`build.xml`) ou avec `make` (le `Makefile` ne fait qu'appeler le
 | `ant` / `ant jar` | `make` / `make jar` | compile `src/` dans `bin/`, puis crée `egrep-clone.jar` à la racine (exécutable, `Main-Class: Main`, sans les tests). Cible par défaut. |
 | `ant compile` | `make compile` | compile `src/` dans `bin/` (UTF-8, `release 11`). Repart toujours d'un `bin/` vide : la compilation incrémentale d'Ant compare les dates à la seconde près et ne recompile pas les classes dépendantes. |
 | `ant test` | `make test` | compile `tests/` dans `bin-tests/`, lance `TestKmp`, puis `tests/verifier.sh` s'il existe. Échoue si un test échoue. |
-| `ant clean` | `make clean` | supprime `bin/`, `bin-tests/` et `egrep-clone.jar` |
+| `ant doc` | `make doc` | Javadoc HTML de `src/` dans `doc/` (UTF-8, `-Xdoclint:all`, `failonwarning` : la cible échoue au moindre avertissement) |
+| `ant clean` | `make clean` | supprime `bin/`, `bin-tests/`, `doc/` et `egrep-clone.jar` |
 | `ant bench` | `make bench` | « à venir » |
 
 ```bash
@@ -108,7 +109,7 @@ Les options courtes peuvent être groupées (`-cn`) et placées avant ou après 
 
 Il faut un `javac` de version 11 ou plus. Sur cette machine, `openjdk-21-jdk` est installé : `javac` 21 est le compilateur par défaut, et Ant utilise ce même JDK. `--release 11` garantit que le code reste compatible Java 11.
 
-`bin/`, `bin-tests/` et `*.jar` sont dans `.gitignore`.
+`bin/`, `bin-tests/`, `doc/` et `*.jar` sont dans `.gitignore`.
 
 ## Commande de référence
 
@@ -188,7 +189,12 @@ KMP contre automate une passe sur `data/text1.txt` (`--stats`, médiane de 5 lan
 | `abab` | 4 | 0 | 36 ms | 48 ms | 5 |
 | ligne de 73 caractères (dans `tests/regex.txt`) | 73 | 1 | 35 ms | 45 ms | 74 |
 
-Reste à faire : benchmarks (`ant bench`), tests unitaires des autres classes (facultatif : le banc les couvre de bout en bout), Javadoc (présente sur `Main`, `Affichage`, `Parser`, `FileSearcher`, `ResultatRecherche`, `Matcher`, `MatcherNaif`, `MatcherUnePasse`, `AfdCompile`, `ConstructionAutomate`, `Kmp`, `TestKmp`, `AstVide`, `AstFactory`, `Etat`, `Minimisation.minimiser`, et sur les ajouts dans `Afd` et `Determinisation` ; absente ailleurs), README (vide), rapport.
+Documentation (30/10/2026) :
+- `README.md` à la racine : présentation, prérequis, compilation, utilisation (syntaxe, chaque option avec un exemple vérifié, codes de sortie, exemple du sujet), tests, benchmarks (« à venir », lien prévu vers `bench/README.md`, qui n'existe pas encore), architecture, écarts connus, auteurs (`NOM1`, `NOM2` à remplacer). Les exemples du tableau des options évitent `|`, qui devrait être échappé dans un tableau Markdown.
+- Javadoc complète sur toutes les classes de `src/` et `tests/`, avec la complexité de chaque étape : Thompson (O(|R|) états ; construction en O(k³) au pire, à cause des copies et de `ajouterEtat` linéaire), fermeture ε et `move` (O(q + t)), sous-ensembles (jusqu'à 2^q états), Moore (O(n³ · s) au pire), retrait du puits (O(n · s)), table (O(1) par caractère < 256), naïf O(n²), une passe O(n), KMP O(n + m). `ant doc` : 0 avertissement.
+- Code mort supprimé : constructeurs `Afd(Etat)` et `Afn(Etat)`, `AfdCompile.getNombreEtats`, les deux enveloppes privées de `Minimisation` (`getAlphabet`, `transition`), et une condition redondante dans `Parser.parseExpression`. Les méthodes internes du `Parser` (`parseExpression`, `parseConcat`, `parseRepeat`, `parseAtom`, `avancer`, `courant`) sont devenues privées ; seuls le constructeur et `parse()` sont publics. Aucun import inutilisé. Constructeurs explicites commentés (privés pour `Main`, `AstFactory` et `TestKmp`). Aucun changement de comportement : `ant clean jar test` donne toujours 20 012 tests KMP et 1 611 OK, 0 KO.
+
+Reste à faire : benchmarks (`ant bench`, `bench/README.md`, graphiques en Python 3 + matplotlib, comme l'annonce le README), tests unitaires des autres classes (facultatif : le banc les couvre de bout en bout), rapport, archive zip.
 
 À savoir : les méthodes `static` de `AstFactoryI` ne sont pas héritées par `AstFactory`, donc l'interface ne contraint rien. Elle sert seulement de documentation des signatures, alignées depuis le 30/10/2026 (`createChar(Character)`, `createVide()`).
 

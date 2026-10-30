@@ -14,19 +14,16 @@ public class AstVide implements AstI {
     public AstVide() {
     }
 
-    /** @return toujours {@code null} : une feuille n'a pas de fils */
     @Override
     public AstI getFilsGauche() {
         return null;
     }
 
-    /** @return toujours {@code null} : une feuille n'a pas de fils */
     @Override
     public AstI getFilsDroit() {
         return null;
     }
 
-    /** Accepte un visiteur (patron visiteur). */
     @Override
     public <T> T accept(AstVisitor<T> visitor) {
         return visitor.visit(this);

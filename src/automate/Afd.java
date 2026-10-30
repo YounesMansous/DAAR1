@@ -1,8 +1,18 @@
-
 package automate;
 
 import java.util.*;
 
+/**
+ * Automate fini déterministe, produit par {@link Determinisation}
+ * puis réduit par {@link Minimisation}. Chaque (état, symbole) mène
+ * à au plus un état ; l'automate n'est pas forcément complet : une
+ * transition absente signifie un échec.
+ *
+ * <p>L'alphabet contient les lettres de la regex, plus {@link #AUTRE}
+ * si la regex contient un point. Il est conservé avec l'automate,
+ * car c'est lui qui donne les colonnes de la minimisation et de la
+ * table {@link AfdCompile}.</p>
+ */
 public class Afd implements AutomateI<Etat> {
 
     /**
@@ -20,17 +30,12 @@ public class Afd implements AutomateI<Etat> {
     // si la regex contient un point
     private Set<String> alphabet;
 
+    /** Crée un AFD vide, sans état initial et d'alphabet vide. */
     public Afd() {
         this.etats = new ArrayList<>();
         this.transitions = new HashMap<>();
         this.finaux = new HashSet<>();
         this.alphabet = new TreeSet<>();
-    }
-
-    public Afd(Etat initial) {
-        this();
-        this.initial = initial;
-        ajouterEtat(initial);
     }
 
     @Override
@@ -40,6 +45,14 @@ public class Afd implements AutomateI<Etat> {
         }
     }
 
+    /**
+     * Ajoute une transition déterministe.
+     *
+     * @param transition la transition à ajouter
+     * @throws IllegalArgumentException si c'est une ε-transition, ou
+     *         si l'état source a déjà une autre destination pour ce
+     *         symbole
+     */
     @Override
     public void ajouterTransition(Transition transition) {
 
@@ -66,6 +79,13 @@ public class Afd implements AutomateI<Etat> {
         sorties.put(symbole, destination);
     }
 
+    /**
+     * Transition depuis un état.
+     *
+     * @param source  état de départ
+     * @param symbole symbole lu (lettre de l'alphabet ou {@link #AUTRE})
+     * @return l'état atteint, ou {@code null} s'il n'y a pas de transition
+     */
     public Etat transition(Etat source, String symbole) {
         return transitions
             .getOrDefault(source, Collections.emptyMap())

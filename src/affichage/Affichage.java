@@ -21,9 +21,11 @@ import automate.Etat;
 import kmp.Kmp;
 
 /**
- * Affichage de l'AST et des automates (mode --debug).
- * Toutes les méthodes écrivent sur le flux donné en paramètre
- * (stderr dans Main), jamais directement sur la sortie standard.
+ * Affichage de l'AST, des automates et de la table KMP (option
+ * --debug). Ne fait pas partie du pipeline de recherche : Main
+ * l'appelle seulement pour montrer chaque étape. Toutes les méthodes
+ * écrivent sur le flux donné en paramètre (stderr dans Main), jamais
+ * directement sur la sortie standard.
  */
 public final class Affichage {
 
@@ -49,6 +51,8 @@ public final class Affichage {
         out.println();
     }
 
+    // Affiche un nœud et ses fils, avec les traits de l'arbre ;
+    // dernier indique si le nœud est le dernier fils de son père
     private static void afficherNoeud(
             AstI ast,
             String prefix,
@@ -131,6 +135,8 @@ public final class Affichage {
     // ==================================================
 
     /**
+     * Compte les transitions d'un AFN.
+     *
      * @param afn un AFN
      * @return son nombre de transitions (epsilon comprises)
      */
@@ -150,6 +156,8 @@ public final class Affichage {
     }
 
     /**
+     * Compte les transitions d'un AFD.
+     *
      * @param afd un AFD
      * @return son nombre de transitions
      */
@@ -170,6 +178,8 @@ public final class Affichage {
     // AFFICHAGE COMMUN DES ETATS
     // ==================================================
 
+    // En-tête commun à l'AFN et à l'AFD : tailles, initial, finaux,
+    // liste des états
     private static void afficherEtats(
             AutomateI<?> automate,
             String titre,

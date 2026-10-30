@@ -1,4 +1,3 @@
-
 package automate;
 
 import java.util.Map;
@@ -12,12 +11,31 @@ import ast.AstRepeat;
 import ast.AstVide;
 import ast.interfaces.AstVisitor;
 
+/**
+ * Deuxième étape du pipeline : construit l'AFN-ε d'une regex à partir
+ * de son AST (construction de Thompson, dans la présentation
+ * d'Aho et Ullman).
+ *
+ * <p>Chaque nœud donne un AFN avec un état initial et des états
+ * finaux. Les AFN des fils sont recopiés dans celui du père, puis
+ * reliés par des ε-transitions. Un nœud ajoute au plus deux états et
+ * quatre ε-transitions, plus une ε-transition par état final d'un
+ * fils : l'AFN de R a O(|R|) états et transitions.</p>
+ *
+ * <p>Temps : chaque nœud recopie les AFN de ses fils, et
+ * {@code ajouterEtat} vérifie en temps linéaire que l'état est
+ * nouveau. Une concaténation de k lettres (arbre en peigne de
+ * profondeur k) coûte donc O(k³) dans le pire cas, ce qui reste
+ * négligeable pour des motifs de quelques dizaines de caractères.</p>
+ */
 public class AstToAfnVisitor implements AstVisitor<Afn> {
 
-    // ==========================================
-    // Copier les etats et transitions d'un AFN
-    // ==========================================
+    /** Crée le visiteur ; il n'a pas d'état et peut être réutilisé. */
+    public AstToAfnVisitor() {
+    }
 
+    // Recopie les états et les transitions de source dans destination
+    // (sans l'initial ni les finaux, que l'appelant choisit)
     private void copierAfn(Afn source, Afn destination) {
 
         // Copier les etats
@@ -46,10 +64,12 @@ public class AstToAfnVisitor implements AstVisitor<Afn> {
         }
     }
 
-    // ==========================================
-    // CARACTERE
-    // ==========================================
-
+    /**
+     * Lettre c : debut --c--&gt; fin. 2 états, 1 transition.
+     *
+     * @param noeud la lettre
+     * @return l'AFN qui reconnaît exactement cette lettre
+     */
     @Override
     public Afn visit(AstChar noeud) {
 
@@ -75,10 +95,13 @@ public class AstToAfnVisitor implements AstVisitor<Afn> {
         return afn;
     }
 
-    // ==========================================
-    // POINT (.)
-    // ==========================================
-
+    /**
+     * Point : debut --.--&gt; fin. Le symbole « . » est traité comme
+     * « n'importe quel caractère » par la déterminisation.
+     *
+     * @param noeud le point
+     * @return l'AFN qui reconnaît un caractère quelconque
+     */
     @Override
     public Afn visit(AstDot noeud) {
 
@@ -100,12 +123,11 @@ public class AstToAfnVisitor implements AstVisitor<Afn> {
         return afn;
     }
 
-    // ==========================================
-    // MOT VIDE
-    // ==========================================
-
     /**
-     * AFN du mot vide : un seul état, à la fois initial et final.
+     * Mot vide : un seul état, à la fois initial et final.
+     *
+     * @param noeud le mot vide
+     * @return l'AFN qui ne reconnaît que le mot vide
      */
     @Override
     public Afn visit(AstVide noeud) {
@@ -121,10 +143,13 @@ public class AstToAfnVisitor implements AstVisitor<Afn> {
         return afn;
     }
 
-    // ==========================================
-    // CONCATENATION
-    // ==========================================
-
+    /**
+     * Concaténation G D : chaque état final de G est relié par ε à
+     * l'initial de D. Initial de G, finaux de D ; aucun nouvel état.
+     *
+     * @param noeud la concaténation
+     * @return l'AFN de G D
+     */
     @Override
     public Afn visit(AstConcat noeud) {
 
@@ -158,10 +183,14 @@ public class AstToAfnVisitor implements AstVisitor<Afn> {
         return resultat;
     }
 
-    // ==========================================
-    // ALTERNATIVE (|)
-    // ==========================================
-
+    /**
+     * Alternative G|D : nouvel initial relié par ε aux initiaux de G
+     * et de D, et finaux de G et de D reliés par ε à un nouvel état
+     * final unique. 2 nouveaux états.
+     *
+     * @param noeud l'alternative
+     * @return l'AFN de G|D
+     */
     @Override
     public Afn visit(AstOr noeud) {
 
@@ -217,10 +246,15 @@ public class AstToAfnVisitor implements AstVisitor<Afn> {
         return resultat;
     }
 
-    // ==========================================
-    // REPETITION (*)
-    // ==========================================
-
+    /**
+     * Étoile E* : nouvel initial et nouvel état final, avec
+     * ε-transitions debut → initial de E (entrer), debut → fin (zéro
+     * répétition), finaux de E → initial de E (recommencer) et
+     * finaux de E → fin (sortir). 2 nouveaux états.
+     *
+     * @param noeud l'étoile
+     * @return l'AFN de E*
+     */
     @Override
     public Afn visit(AstRepeat noeud) {
 

@@ -1,20 +1,47 @@
-
 package automate;
 
 import java.util.*;
 
+/**
+ * Troisième étape du pipeline : transforme l'AFN-ε en AFD par la
+ * construction des sous-ensembles.
+ *
+ * <p>Chaque état de l'AFD représente l'ensemble des états de l'AFN
+ * où l'on peut se trouver après avoir lu un même mot. L'alphabet de
+ * l'AFD est formé des lettres de la regex, plus {@link Afd#AUTRE} si
+ * elle contient un point : AUTRE représente d'un coup tous les
+ * caractères absents de la regex, qui se comportent tous de la même
+ * façon (seul le point les accepte). Il n'y a donc jamais besoin de
+ * retour arrière pour gérer le point.</p>
+ *
+ * <p>Complexité : avec q états dans l'AFN, t transitions et un
+ * alphabet de taille s, chaque état de l'AFD coûte
+ * O(s · (q + t)) (un {@code move} et une fermeture par symbole).
+ * L'AFD peut avoir jusqu'à 2^q états dans le pire cas théorique ; sur
+ * les motifs du banc, il en a quelques dizaines au plus.</p>
+ */
 public class Determinisation {
 
     private final Afn afn;
 
+    /**
+     * Prépare la déterminisation d'un AFN-ε.
+     *
+     * @param afn l'AFN-ε à déterminiser
+     */
     public Determinisation(Afn afn) {
         this.afn = afn;
     }
 
-    // ==========================================
-    // 1. FERMETURE EPSILON
-    // ==========================================
-
+    /**
+     * Fermeture ε : tous les états atteignables depuis l'ensemble
+     * donné en ne suivant que des ε-transitions (parcours en
+     * profondeur avec une pile). Chaque état et chaque ε-transition
+     * sont examinés au plus une fois : O(q + t).
+     *
+     * @param etats ensemble d'états de départ de l'AFN
+     * @return ces états et tous ceux qu'ils atteignent par ε
+     */
     public Set<Etat> epsilonClosure(Set<Etat> etats) {
 
         Set<Etat> fermeture = new HashSet<>(etats);
@@ -24,7 +51,6 @@ public class Determinisation {
 
             Etat courant = pile.pop();
 
-            // Recuperer directement les destinations EPSILON
             for (Etat destination :
                     afn.destinations(courant, "EPSILON")) {
 
@@ -37,16 +63,13 @@ public class Determinisation {
         return fermeture;
     }
 
-    // ==========================================
-    // 2. MOVE
-    // ==========================================
-
     /**
      * Calcule les états atteints depuis un ensemble d'états
      * en lisant un symbole.
      * Le point « . » accepte tous les caractères : ses destinations
      * sont ajoutées pour chaque symbole. Pour {@link Afd#AUTRE},
      * seules les destinations du point sont possibles.
+     * Coût O(q + t).
      *
      * @param etats   ensemble d'états de départ de l'AFN
      * @param symbole symbole lu (lettre de l'alphabet ou AUTRE)
@@ -72,10 +95,17 @@ public class Determinisation {
         return resultat;
     }
 
-    // ==========================================
-    // 3. CONSTRUCTION DE L'AFD
-    // ==========================================
-
+    /**
+     * Construit l'AFD. On part de la fermeture ε de l'état initial ;
+     * pour chaque ensemble S encore à traiter (file) et chaque
+     * symbole a, l'ensemble fermeture(move(S, a)) devient un état de
+     * l'AFD s'il est nouveau. Un ensemble vide ne donne pas d'état
+     * (pas de puits) : la transition est simplement absente. Un état
+     * de l'AFD est final si son ensemble contient un état final de
+     * l'AFN.
+     *
+     * @return l'AFD, avec son alphabet
+     */
     public Afd convertir() {
 
         Afd afd = new Afd();
@@ -84,10 +114,6 @@ public class Determinisation {
         Map<Set<Etat>, Etat> correspondance = new HashMap<>();
 
         Queue<Set<Etat>> file = new ArrayDeque<>();
-
-        // ======================================
-        // CONSTRUCTION DE L'ALPHABET
-        // ======================================
 
         // Lettres de la regex, plus AUTRE pour les caracteres
         // qui n'y figurent pas mais que le point accepte
@@ -109,10 +135,6 @@ public class Determinisation {
 
         afd.setAlphabet(alphabet);
 
-        // ======================================
-        // ETAT INITIAL DE L'AFD
-        // ======================================
-
         Set<Etat> depart = epsilonClosure(
             Set.of(afn.getInitial())
         );
@@ -129,10 +151,6 @@ public class Determinisation {
             afd.ajouterEtatFinal(initialAfd);
         }
 
-        // ======================================
-        // EXPLORATION DES ENSEMBLES D'ETATS
-        // ======================================
-
         while (!file.isEmpty()) {
 
             Set<Etat> courant = file.poll();
@@ -147,7 +165,6 @@ public class Determinisation {
                     continue;
                 }
 
-                // Creer un etat si l'ensemble est nouveau
                 if (!correspondance.containsKey(destination)) {
 
                     Etat nouvelEtat = new Etat();
@@ -162,7 +179,6 @@ public class Determinisation {
                     }
                 }
 
-                // Ajouter la transition deterministe
                 afd.ajouterTransition(
                     new Transition(
                         sourceAfd,
@@ -176,10 +192,7 @@ public class Determinisation {
         return afd;
     }
 
-    // ==========================================
-    // 4. VERIFIER LES ETATS FINAUX
-    // ==========================================
-
+    // Vrai si l'ensemble contient un etat final de l'AFN
     private boolean contientFinal(Set<Etat> etats) {
 
         for (Etat etat : etats) {

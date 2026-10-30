@@ -1,42 +1,43 @@
-
 package automate;
 
 import java.util.*;
 
+/**
+ * Quatrième étape du pipeline : minimise l'AFD par l'algorithme de
+ * Moore, puis retire l'état puits.
+ *
+ * <p>Étapes de {@link #minimiser()} :</p>
+ * <ol>
+ *   <li>suppression des états inaccessibles depuis l'initial ;</li>
+ *   <li>complétion par un état puits, pour que chaque état ait une
+ *       transition sur chaque symbole de l'alphabet ;</li>
+ *   <li>raffinement de Moore jusqu'au point fixe ;</li>
+ *   <li>construction de l'AFD quotient (un état par classe) ;</li>
+ *   <li>retrait du puits.</li>
+ * </ol>
+ *
+ * <p>Complexité, avec n états et un alphabet de taille s : chaque
+ * tour de raffinement coûte O(n · s · k), où k est le nombre de
+ * classes (la classe d'un état est cherchée en parcourant la liste
+ * des classes). Il y a au plus n tours, d'où O(n³ · s) dans le pire
+ * cas ; les AFD du projet ont rarement plus de quelques dizaines
+ * d'états.</p>
+ */
 public class Minimisation {
 
     private final Afd afd;
 
+    /**
+     * Prépare la minimisation d'un AFD.
+     *
+     * @param afd l'AFD à minimiser ; il n'est pas modifié
+     */
     public Minimisation(Afd afd) {
         this.afd = afd;
     }
 
-    // ==========================================
-    // 1. RECUPERER L'ALPHABET
-    // ==========================================
-
-    // L'alphabet est celui calcule par la determinisation
-    // (il contient AUTRE si la regex a un point)
-    private Set<String> getAlphabet(Afd automate) {
-        return automate.getAlphabet();
-    }
-
-    // ==========================================
-    // 2. RECUPERER UNE TRANSITION
-    // ==========================================
-
-    private Etat transition(
-            Afd automate,
-            Etat source,
-            String symbole) {
-
-        return automate.transition(source, symbole);
-    }
-
-    // ==========================================
-    // 3. SUPPRIMER LES ETATS INACCESSIBLES
-    // ==========================================
-
+    // Parcours en largeur depuis l'etat initial, en O(n · s) ;
+    // renvoie une copie de l'AFD reduite aux etats atteints
     private Afd supprimerInaccessibles() {
 
         if (afd.getInitial() == null) {
@@ -86,7 +87,6 @@ public class Minimisation {
 
         resultat.setInitial(afd.getInitial());
 
-        // Copier uniquement les transitions accessibles
         for (Map.Entry<Etat, Map<String, Etat>> entree :
                 afd.getTransitions().entrySet()) {
 
@@ -117,30 +117,27 @@ public class Minimisation {
         return resultat;
     }
 
-    // ==========================================
-    // 4. COMPLETER L'AUTOMATE
-    // ==========================================
-
+    // Copie de l'automate ou chaque transition manquante va vers un
+    // etat puits unique, qui boucle sur lui-meme. Moore a besoin d'un
+    // automate complet : sinon une transition absente n'aurait pas de
+    // classe d'arrivee a comparer.
     private Afd completerAutomate(Afd automate) {
 
-        Set<String> alphabet = getAlphabet(automate);
+        Set<String> alphabet = automate.getAlphabet();
 
         Afd resultat = new Afd();
         resultat.setAlphabet(alphabet);
 
-        // Copier les etats
         for (Etat etat : automate.getEtats()) {
             resultat.ajouterEtat(etat);
         }
 
-        // Copier les etats finaux
         for (Etat etat : automate.getFinaux()) {
             resultat.ajouterEtatFinal(etat);
         }
 
         resultat.setInitial(automate.getInitial());
 
-        // Copier les transitions
         for (Map.Entry<Etat, Map<String, Etat>> entree :
                 automate.getTransitions().entrySet()) {
 
@@ -161,12 +158,11 @@ public class Minimisation {
 
         Etat puits = null;
 
-        // Completer les transitions manquantes
         for (Etat etat : automate.getEtats()) {
 
             for (String symbole : alphabet) {
 
-                if (transition(automate, etat, symbole) == null) {
+                if (automate.transition(etat, symbole) == null) {
 
                     if (puits == null) {
                         puits = new Etat();
@@ -180,7 +176,6 @@ public class Minimisation {
             }
         }
 
-        // Le puits boucle sur tous les symboles
         if (puits != null) {
 
             for (String symbole : alphabet) {
@@ -194,10 +189,8 @@ public class Minimisation {
         return resultat;
     }
 
-    // ==========================================
-    // 5. PARTITIONS INITIALES
-    // ==========================================
-
+    // Partition de depart de Moore : finaux d'un cote, non finaux de
+    // l'autre (sans classe vide)
     private List<Set<Etat>> partitionsInitiales(Afd automate) {
 
         Set<Etat> finaux = new LinkedHashSet<>();
@@ -225,10 +218,7 @@ public class Minimisation {
         return partitions;
     }
 
-    // ==========================================
-    // 6. INDICE D'UNE PARTITION
-    // ==========================================
-
+    // Indice de la classe qui contient l'etat, en O(k)
     private int indicePartition(
             Etat etat,
             List<Set<Etat>> partitions) {
@@ -245,21 +235,23 @@ public class Minimisation {
         );
     }
 
-    // ==========================================
-    // 7. RAFFINER LES PARTITIONS
-    // ==========================================
-
+    // Un tour de Moore : deux etats d'une meme classe restent ensemble
+    // si et seulement si, pour chaque symbole, ils vont dans la meme
+    // classe. La signature d'un etat est la liste de ces classes
+    // d'arrivee (dans l'ordre de l'alphabet) ; chaque classe est
+    // decoupee selon les signatures. Les LinkedHashMap gardent un
+    // ordre stable, ce qui permet de detecter le point fixe par
+    // simple egalite des listes.
     private List<Set<Etat>> raffinerPartitions(
             Afd automate,
             List<Set<Etat>> partitions) {
 
-        Set<String> alphabet = getAlphabet(automate);
+        Set<String> alphabet = automate.getAlphabet();
 
         List<Set<Etat>> nouvelles = new ArrayList<>();
 
         for (Set<Etat> groupe : partitions) {
 
-            // Une signature indique les partitions atteintes
             Map<List<Integer>, Set<Etat>> sousGroupes =
                 new LinkedHashMap<>();
 
@@ -270,7 +262,7 @@ public class Minimisation {
                 for (String symbole : alphabet) {
 
                     Etat destination =
-                        transition(automate, etat, symbole);
+                        automate.transition(etat, symbole);
 
                     int indice =
                         indicePartition(destination, partitions);
@@ -292,20 +284,18 @@ public class Minimisation {
         return nouvelles;
     }
 
-    // ==========================================
-    // 8. CONSTRUIRE L'AFD MINIMAL
-    // ==========================================
-
+    // AFD quotient : un etat par classe. Tous les etats d'une classe
+    // ont les memes transitions (au niveau des classes), donc il
+    // suffit de lire celles d'un representant.
     private Afd construireAfdMinimal(
             Afd automate,
             List<Set<Etat>> partitions) {
 
         Afd minimal = new Afd();
-        minimal.setAlphabet(getAlphabet(automate));
+        minimal.setAlphabet(automate.getAlphabet());
 
         Map<Etat, Etat> correspondance = new HashMap<>();
 
-        // Un nouvel etat par groupe
         for (Set<Etat> groupe : partitions) {
 
             Etat nouvelEtat = new Etat();
@@ -326,9 +316,8 @@ public class Minimisation {
             }
         }
 
-        Set<String> alphabet = getAlphabet(automate);
+        Set<String> alphabet = automate.getAlphabet();
 
-        // Construire les nouvelles transitions
         for (Set<Etat> groupe : partitions) {
 
             Etat representant = groupe.iterator().next();
@@ -339,7 +328,7 @@ public class Minimisation {
             for (String symbole : alphabet) {
 
                 Etat ancienneDestination =
-                    transition(automate, representant, symbole);
+                    automate.transition(representant, symbole);
 
                 Etat nouvelleDestination =
                     correspondance.get(ancienneDestination);
@@ -357,16 +346,13 @@ public class Minimisation {
         return minimal;
     }
 
-    // ==========================================
-    // 9. METHODE PRINCIPALE
-    // ==========================================
-
     /**
      * Minimise l'AFD (algorithme de Moore), puis retire l'état puits.
      * L'automate renvoyé n'est donc pas complet : une transition
      * absente signifie qu'aucun état final n'est plus atteignable.
      *
      * @return l'AFD minimal, sans état puits
+     * @throws IllegalStateException si l'AFD n'a pas d'état initial
      */
     public Afd minimiser() {
 
@@ -392,17 +378,14 @@ public class Minimisation {
         return retirerPuits(construireAfdMinimal(complet, partitions));
     }
 
-    // ==========================================
-    // 10. RETIRER L'ETAT PUITS
-    // ==========================================
-
     // Garde seulement les etats depuis lesquels un etat final est
     // atteignable (dans un AFD minimal, seul le puits ne l'est pas),
     // et les transitions entre ces etats. L'etat initial est toujours
-    // garde pour que l'automate reste utilisable.
+    // garde pour que l'automate reste utilisable. Parcours en largeur
+    // a l'envers depuis les finaux, en O(n · s). Les matchers
+    // s'arretent ainsi des qu'aucune occurrence n'est plus possible.
     private Afd retirerPuits(Afd automate) {
 
-        // Predecesseurs de chaque etat
         Map<Etat, List<Etat>> predecesseurs = new HashMap<>();
 
         for (Map.Entry<Etat, Map<String, Etat>> entree :
@@ -416,7 +399,6 @@ public class Minimisation {
             }
         }
 
-        // Parcours a l'envers depuis les etats finaux
         Set<Etat> utiles = new HashSet<>(automate.getFinaux());
         Deque<Etat> file = new ArrayDeque<>(automate.getFinaux());
 

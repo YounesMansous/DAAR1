@@ -1,21 +1,26 @@
-
 import java.util.Random;
 
 import kmp.Kmp;
 
 /**
  * Tests de {@link Kmp}, sans JUnit : chaque test compare
- * {@code Kmp.contientMotif} à {@code String.contains}.
- * Affiche le nombre de tests réussis, et s'arrête avec le code 1
- * au premier échec.
+ * {@code Kmp.contientMotif} à {@code String.contains}, sur des cas
+ * pièges, des cas limites et 20 000 couples (motif, ligne) tirés au
+ * hasard avec une graine fixe. Affiche le nombre de tests réussis,
+ * et s'arrête avec le code 1 au premier échec.
  *
- * Lancement :
+ * <p>Lancement : {@code ant test}, ou à la main :</p>
  * <pre>
- *   javac --release 11 -encoding UTF-8 -d bin $(find src tests -name '*.java')
- *   java -cp bin TestKmp
+ *   javac --release 11 -encoding UTF-8 -d bin $(find src -name '*.java')
+ *   javac --release 11 -encoding UTF-8 -cp bin -d bin-tests tests/*.java
+ *   java -cp bin:bin-tests TestKmp
  * </pre>
  */
 public class TestKmp {
+
+    /** Classe de test : seul {@link #main(String[])} est utile. */
+    private TestKmp() {
+    }
 
     // Graine fixe : les tests aleatoires sont reproductibles
     private static final long GRAINE = 20261030L;
@@ -24,7 +29,7 @@ public class TestKmp {
     private static int reussis = 0;
 
     /**
-     * Lance tous les tests.
+     * Lance tous les tests ; quitte avec le code 1 au premier échec.
      *
      * @param args non utilisés
      */
@@ -79,6 +84,8 @@ public class TestKmp {
         reussis++;
     }
 
+    // Mot de la longueur donnee sur l'alphabet {a, b} : un petit
+    // alphabet multiplie les bords et les echecs partiels
     private static String motAleatoire(Random hasard, int longueur) {
 
         StringBuilder mot = new StringBuilder(longueur);

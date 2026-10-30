@@ -7,7 +7,8 @@
   ant jar        : jar exécutable egrep-clone.jar (sans les tests)
   ant test       : compile tests/ dans bin-tests/, lance TestKmp,
                    puis tests/verifier.sh s'il existe
-  ant clean      : supprime bin/, bin-tests/ et le jar
+  ant doc        : Javadoc HTML de src/ dans doc/
+  ant clean      : supprime bin/, bin-tests/, doc/ et le jar
   ant bench      : benchmarks (à venir)
 -->
 <project name="egrep-clone" default="jar" basedir=".">
@@ -17,6 +18,7 @@
     <property name="bin.dir"        value="bin"/>
     <property name="bin.tests.dir"  value="bin-tests"/>
     <property name="jar.file"       value="egrep-clone.jar"/>
+    <property name="doc.dir"        value="doc"/>
 
     <!-- Bytecode Java 11 (version de classe 55) : le jar tourne
          sur n'importe quel Java 11 ou plus -->
@@ -91,10 +93,34 @@
                    property="verifier.present"/>
     </target>
 
+    <!-- Javadoc HTML de src/ (classe Main du paquet par défaut
+         comprise, d'où le fileset plutôt que packagenames).
+         -Xdoclint:all vérifie tous les commentaires, et
+         failonwarning fait échouer la cible au moindre
+         avertissement. -->
+    <target name="doc" description="Génère la Javadoc HTML dans doc/">
+        <delete dir="${doc.dir}"/>
+        <javadoc destdir="${doc.dir}"
+                 encoding="UTF-8"
+                 docencoding="UTF-8"
+                 charset="UTF-8"
+                 windowtitle="egrep-clone"
+                 doctitle="egrep-clone : clone d'egrep (projet 1, DAAR)"
+                 failonwarning="true"
+                 failonerror="true">
+            <fileset dir="${src.dir}" includes="**/*.java"/>
+            <arg value="--release"/>
+            <arg value="${java.release}"/>
+            <arg value="-Xdoclint:all"/>
+        </javadoc>
+    </target>
+
     <!-- Supprime tout ce qui est produit par le build -->
-    <target name="clean" description="Supprime bin/, bin-tests/ et le jar">
+    <target name="clean"
+            description="Supprime bin/, bin-tests/, doc/ et le jar">
         <delete dir="${bin.dir}"/>
         <delete dir="${bin.tests.dir}"/>
+        <delete dir="${doc.dir}"/>
         <delete file="${jar.file}"/>
     </target>
 

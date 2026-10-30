@@ -9,7 +9,8 @@
                    puis tests/verifier.sh s'il existe
   ant doc        : Javadoc HTML de src/ dans doc/
   ant clean      : supprime bin/, bin-tests/, doc/ et le jar
-  ant bench      : benchmarks (à venir)
+  ant bench      : banc de performances (bench/README.md) : CSV dans
+                   resultats/, figures dans rapport/figures/
 -->
 <project name="egrep-clone" default="jar" basedir=".">
 
@@ -19,6 +20,9 @@
     <property name="bin.tests.dir"  value="bin-tests"/>
     <property name="jar.file"       value="egrep-clone.jar"/>
     <property name="doc.dir"        value="doc"/>
+    <property name="bench.dir"      value="bench"/>
+    <property name="bin.bench.dir"  value="bin-bench"/>
+    <property name="genere.dir"     value="bench/genere"/>
 
     <!-- Bytecode Java 11 (version de classe 55) : le jar tourne
          sur n'importe quel Java 11 ou plus -->
@@ -117,15 +121,73 @@
 
     <!-- Supprime tout ce qui est produit par le build -->
     <target name="clean"
-            description="Supprime bin/, bin-tests/, doc/ et le jar">
+            description="Supprime bin/, bin-tests/, doc/, bin-bench/ et le jar">
         <delete dir="${bin.dir}"/>
         <delete dir="${bin.tests.dir}"/>
         <delete dir="${doc.dir}"/>
+        <delete dir="${bin.bench.dir}"/>
+        <delete dir="${genere.dir}"/>
         <delete file="${jar.file}"/>
     </target>
 
-    <target name="bench" description="Benchmarks (à venir)">
-        <echo message="Benchmarks : à venir."/>
+    <!-- Compile le banc de performances dans un dossier séparé -->
+    <target name="compile-bench" depends="compile">
+        <delete dir="${bin.bench.dir}"/>
+        <mkdir dir="${bin.bench.dir}"/>
+        <javac srcdir="${bench.dir}"
+               destdir="${bin.bench.dir}"
+               encoding="UTF-8"
+               release="${java.release}"
+               includeantruntime="false"
+               debug="true">
+            <classpath location="${bin.dir}"/>
+        </javac>
+    </target>
+
+    <!-- Un lancement de Benchmark (une JVM neuve) -->
+    <macrodef name="benchmark">
+        <attribute name="args"/>
+        <sequential>
+            <java classname="Benchmark" fork="true" failonerror="true"
+                  dir="${basedir}">
+                <jvmarg value="-Xmx1g"/>
+                <arg line="@{args}"/>
+                <classpath>
+                    <pathelement location="${bin.dir}"/>
+                    <pathelement location="${bin.bench.dir}"/>
+                </classpath>
+            </java>
+        </sequential>
+    </macrodef>
+
+    <!-- Banc complet : mesures dans la JVM (Benchmark, une JVM par
+         expérience et par algorithme, pour que le JIT d'un algorithme
+         ne pèse pas sur les autres), vérification croisée du nombre
+         de lignes, puis mesures de bout en bout contre grep
+         (bench_bout_en_bout.py, qui exporte une locale UTF-8 pour java
+         et grep), puis les figures. Les fichiers générés de 1 à
+         32 Mio sont supprimés à la fin. -->
+    <target name="bench" depends="jar, compile-bench"
+            description="Banc de performances et figures du rapport">
+        <delete file="resultats/bench_jvm.csv"/>
+        <benchmark args="a kmp"/>
+        <benchmark args="a unepasse"/>
+        <benchmark args="b naif"/>
+        <benchmark args="b unepasse"/>
+        <benchmark args="c kmp"/>
+        <benchmark args="c unepasse"/>
+        <benchmark args="c naif"/>
+        <benchmark args="d thompson"/>
+        <benchmark args="d naif"/>
+        <benchmark args="d unepasse"/>
+        <benchmark args="--verifier"/>
+        <exec executable="python3" failonerror="true">
+            <arg value="${bench.dir}/bench_bout_en_bout.py"/>
+        </exec>
+        <exec executable="python3" failonerror="true">
+            <arg value="${bench.dir}/graphiques.py"/>
+        </exec>
+        <delete dir="${genere.dir}"/>
     </target>
 
 </project>

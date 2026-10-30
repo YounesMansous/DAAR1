@@ -1,4 +1,6 @@
 bin/
 bin-tests/
+bin-bench/
+bench/genere/
 doc/
 *.jar

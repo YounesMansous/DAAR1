@@ -7,14 +7,15 @@ Clone de la commande `egrep` en Java (projet 1 de l'UE DAAR). Il accepte l'ERE s
 - Java 11 ou plus (le jar est compilé en `--release 11`) ;
 - Apache Ant (ou `make`, qui appelle Ant) ;
 - une locale UTF-8 (`LC_ALL=C.UTF-8` sous Linux, `en_US.UTF-8` sous macOS) : sans elle, Java abîme les caractères non ASCII du motif ;
-- Python 3 et matplotlib : seulement pour les graphiques des benchmarks, qui ne sont pas encore écrits (voir plus bas).
+- Python 3 et matplotlib : seulement pour le banc de performances (`ant bench`).
 
 ## Compilation
 
 ```bash
 ant jar          # ou : make     → egrep-clone.jar à la racine
-ant clean        # supprime bin/, bin-tests/, doc/ et le jar
+ant clean        # supprime bin/, bin-tests/, bin-bench/, doc/ et le jar
 ant doc          # Javadoc HTML dans doc/
+ant bench        # banc de performances (environ 4 minutes)
 ```
 
 Sans Ant :
@@ -63,7 +64,7 @@ Lance `TestKmp` (KMP comparé à `String.contains` sur 20 012 cas), puis `tests/
 
 ## Benchmarks
 
-Pas encore écrits : `ant bench` affiche seulement « à venir ». Ils seront décrits dans `bench/README.md`.
+`ant bench` (environ 4 minutes) mesure les algorithmes de deux façons. D'abord dans la JVM, sur des lignes déjà en mémoire, sans le coût de lecture du fichier : KMP contre automate, naïf contre une passe (textes réels et pire cas), passage à l'échelle jusqu'à 32 Mio, taille et construction des automates. Puis de bout en bout, contre `grep -E`. Il écrit les mesures brutes dans `resultats/*.csv` et les figures du rapport dans `rapport/figures/*.png` (moyenne ± écart-type). Protocole et machine : [bench/README.md](bench/README.md).
 
 ## Architecture
 

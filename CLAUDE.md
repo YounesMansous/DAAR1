@@ -73,8 +73,8 @@ Build avec Ant (`build.xml`) ou avec `make` (le `Makefile` ne fait qu'appeler le
 | `ant compile` | `make compile` | compile `src/` dans `bin/` (UTF-8, `release 11`). Repart toujours d'un `bin/` vide : la compilation incrémentale d'Ant compare les dates à la seconde près et ne recompile pas les classes dépendantes. |
 | `ant test` | `make test` | compile `tests/` dans `bin-tests/`, lance `TestKmp`, puis `tests/verifier.sh` s'il existe. Échoue si un test échoue. |
 | `ant doc` | `make doc` | Javadoc HTML de `src/` dans `doc/` (UTF-8, `-Xdoclint:all`, `failonwarning` : la cible échoue au moindre avertissement) |
-| `ant clean` | `make clean` | supprime `bin/`, `bin-tests/`, `doc/` et `egrep-clone.jar` |
-| `ant bench` | `make bench` | « à venir » |
+| `ant clean` | `make clean` | supprime `bin/`, `bin-tests/`, `bin-bench/`, `doc/`, `bench/genere/` et `egrep-clone.jar` |
+| `ant bench` | `make bench` | banc de performances (environ 4 min) : CSV dans `resultats/`, figures dans `rapport/figures/` ; voir « Benchmarks » ci-dessous |
 
 ```bash
 ant clean jar
@@ -109,7 +109,7 @@ Les options courtes peuvent être groupées (`-cn`) et placées avant ou après 
 
 Il faut un `javac` de version 11 ou plus. Sur cette machine, `openjdk-21-jdk` est installé : `javac` 21 est le compilateur par défaut, et Ant utilise ce même JDK. `--release 11` garantit que le code reste compatible Java 11.
 
-`bin/`, `bin-tests/`, `doc/` et `*.jar` sont dans `.gitignore`.
+`bin/`, `bin-tests/`, `bin-bench/`, `bench/genere/`, `doc/` et `*.jar` sont dans `.gitignore`. `resultats/*.csv` et `rapport/figures/*.png` sont versionnés.
 
 ## Commande de référence
 
@@ -143,6 +143,16 @@ Pour vérifier que le banc détecte bien les erreurs, lancez-le avec un jar cons
 
 En cas de changement de l'interface, tester aussi : les codes de sortie (0, 1 et 2, comparés à grep), `-c`, la lecture sur l'entrée standard (`cat f | java -jar egrep-clone.jar m`) et le fait que stdout reste identique à grep avec `--debug` et `--stats`. Pour tester une autre locale (`LC_ALL=C`), copier `egrep-clone.jar` et `data/` dans un chemin en ASCII : le « é » de `Téléchargements` empêche la JVM de trouver ses classes en locale C.
 
+## Benchmarks
+
+`ant bench` (`bench/`, protocole et machine dans `bench/README.md`) :
+
+1. `Benchmark.java` (paquet par défaut, compilé dans `bin-bench/`) mesure dans la JVM, sur des lignes déjà en mémoire. Pour chaque cas : 5 chauffes puis 20 mesures `nanoTime`, construction et recherche chronométrées à part. **Une JVM par configuration** (`Benchmark <a|b|c|d> <kmp|unepasse|naif|thompson>`, ajout au CSV), puis `Benchmark --verifier`, qui relit le CSV et vérifie que tous les algorithmes d'un cas trouvent le même nombre de lignes. Dans une JVM commune, le JIT compile `AfdCompile.suivant` d'après les mesures précédentes : le naïf était 2 fois plus lent après KMP et l'une-passe (`S(a|g|r)*on` sur Don Quixote : 4,4 ms seul, 11,0 ms après l'expérience a). C'est reproductible : ne pas revenir à une JVM unique.
+2. `bench_bout_en_bout.py` : 8 regex × 3 fichiers (50 Kio, 2,2 Mio, 32 Mio générés), 10 lancements chronométrés de `java -jar -c` et de `grep -E -c`. Exporte la locale UTF-8 comme `tests/verifier.sh`.
+3. `graphiques.py` : 7 PNG en noir et blanc dans `rapport/figures/`, et les chiffres clés sur stdout.
+
+Les fichiers de 1 à 32 Mio (`bench/genere/genere-NNMio.txt` : les lignes de `data/*.txt`, par ordre de nom, répétées sans couper de ligne) sont produits à l'identique par Java et par Python (vérifié avec `cmp`). Ils sont supprimés à la fin de `ant bench` et ne doivent pas être versionnés.
+
 ## État du projet (vérifié le 30/10/2026)
 
 Conformes : `ant test` réussit.
@@ -165,36 +175,21 @@ Build :
 - Texte non UTF-8 : nous refusons (code 2), alors que grep affiche « binary file matches ».
 - Locale non UTF-8 (`LANG` vide, `LC_ALL=C`) : la JVM décode les arguments en ASCII (`sun.jnu.encoding = ANSI_X3.4-1968`), et un motif non ASCII (`é`, `’`, `“`) arrive dans `Main` sous forme de U+FFFD. La recherche est alors fausse : 146 KO au banc sur une machine sans locale. On ne peut pas corriger ce décodage une fois la JVM lancée. `Main` affiche donc un avertissement sur stderr (stdout inchangé) quand `sun.jnu.encoding` n'est pas de l'UTF-8 et que le motif contient un caractère de code > 127. **Tout script qui lance le jar (banc, benchmarks) doit exporter une locale UTF-8 pour java aussi**, pas seulement pour grep, comme le fait `tests/verifier.sh` (C.UTF-8, sinon en_US.UTF-8, choisie avec `locale -a`). Vérifié le 30/10/2026 : `env -u LANG -u LC_ALL bash tests/verifier.sh` donne 1 611 OK. Sur cette machine, sans locale, la JVM ne peut même pas ouvrir le jar, à cause du « é » de `Téléchargements` dans le chemin.
 
-Performances : temps de recherche sur `data/text1.txt` (`--stats`, médiane de 5 lancements). « Avant » correspond au commit `a2df701` (AFD en HashMap, `String.valueOf` par caractère, puits conservé, relance depuis chaque position).
-
-| regex | états min. R | états min. `.*R` | avant | naïf | une passe |
-|---|---:|---:|---:|---:|---:|
-| `the` | 4 | 4 | 86 ms | 37 ms | 39 ms |
-| `Elizabeth` | 10 | 10 | 120 ms | 46 ms | 54 ms |
-| `S(a\|g\|r)*on` | 4 | 4 | 116 ms | 50 ms | 49 ms |
-| `a.*b` | 3 | 3 | 552 ms | 45 ms | 46 ms |
-| `(a\|.)b` | 3 | 3 | 594 ms | 47 ms | 54 ms |
-| `m.n` | 4 | 6 | 758 ms | 62 ms | 42 ms |
-
-Un motif qui ne trouve rien (`zzzq`) donne déjà environ 46 ms : sur ce fichier, la lecture, le décodage UTF-8 et le démarrage du JIT dominent, et l'écart entre naïf et une passe se perd dans le bruit. La différence de complexité se voit sur un pire cas : sur une ligne de 50 000 « a » avec `a.*b`, le naïf prend 3 570 ms et l'une-passe 12,6 ms.
-
-KMP contre automate une passe sur `data/text1.txt` (`--stats`, médiane de 5 lancements). Ces temps incluent la lecture et le décodage du fichier (environ 35 à 45 ms à eux seuls), donc **on ne peut pas encore en tirer de conclusion** : les vraies mesures se feront à l'étape des benchmarks.
-
-| motif | m | lignes trouvées | KMP | automate une passe | états min. `.*P` |
-|---|---:|---:|---:|---:|---:|
-| `the` | 3 | 5688 | 33 ms | 40 ms | 4 |
-| `Elizabeth` | 9 | 644 | 37 ms | 47 ms | 10 |
-| `Darcy` | 5 | 429 | 37 ms | 46 ms | 6 |
-| `Sargon` | 6 | 0 | 37 ms | 48 ms | 7 |
-| `abab` | 4 | 0 | 36 ms | 48 ms | 5 |
-| ligne de 73 caractères (dans `tests/regex.txt`) | 73 | 1 | 35 ms | 45 ms | 74 |
+Performances (`ant bench` du 30/10/2026, 230 s ; moyenne ± écart-type sur 20 mesures dans la JVM, 10 de bout en bout) :
+- **KMP contre automate une passe** (Don Quixote, 2,2 Mio en mémoire) : recherche 3,3 à 5,8 ms pour KMP, 7,1 à 9,5 ms pour l'automate. Construction 0,01 à 0,03 ms pour KMP, 0,45 à 10,5 ms pour l'automate (croît avec m). Le temps de KMP dépend de la fréquence de la première lettre du motif plutôt que de m : `III` (I : 0,4 % des caractères) 3,3 ms, `t’s n` (t : 7 %) 5,3 ms.
+- **Naïf contre une passe, textes réels** : contraire à l'intuition, le naïf O(n²) est souvent aussi rapide ou plus rapide (`S(a|g|r)*on` sur Don Quixote : naïf 4,5 ± 0,2 ms, une passe 7,1 ± 0,03 ms). Avec le puits retiré, chaque essai du naïf meurt après 1 ou 2 caractères, et ses essais sont indépendants (même ligne de table, accès parallélisables par le processeur). L'une-passe enchaîne des accès `table[etat][c]` dépendants les uns des autres. C'est une hypothèse, cohérente avec les chiffres mais non vérifiée par un profilage. Le naïf perd quand le point fait durer chaque essai (`.(Bab|Ass)y` : 9,3 contre 7,2 ms).
+- **Pire cas** (une ligne de « a », `a.*b`) : naïf 2,2 ms à n = 1 000, 3 548 ± 40 ms à n = 50 000 (pente 2,0 entre 10 000 et 50 000) ; une passe 0,007 puis 0,163 ms (pente 0,96).
+- **Passage à l'échelle** : linéaire de 1 à 32 Mio. À 32 Mio : KMP 80 ms, une passe 105 ms, naïf 101 ms (`together`) et 68 ms (`S(a|g|r)*on`).
+- **Automates** : l'AFD de `(a|b)*a(a|b)ⁿ` a 2^(n+1) + 1 états et le minimal 2^(n+1), exactement comme la théorie (513 et 512 pour n = 8, construits en 15 à 20 ms), contre un AFN de 6n + 10 états. Sur les regex du banc, le plus gros AFD est la ligne de 73 caractères (AFN 146, AFD 74).
+- **Construction de Thompson** sur un littéral de k lettres : 0,12 ms à k = 10, 50 ms à k = 400 ; pente ≈ 2,2 entre 100 et 400, sous la borne O(k³) annoncée (le terme cubique, la recherche linéaire dans la liste des états, a une petite constante). Construction complète de R : 298 ms à k = 400 (pente ≈ 2,1).
+- **Bout en bout contre grep** : grep est 6 à 70 fois plus rapide. 50 Kio : 67 à 100 ms pour nous (démarrage de la JVM), 1,3 à 1,9 ms pour grep. 32 Mio : 334 à 421 ms pour nous, 10,5 (`zzzq`) à 80 ms pour grep. Nos temps varient peu selon la regex : la lecture et le décodage dominent.
 
 Documentation (30/10/2026) :
-- `README.md` à la racine : présentation, prérequis, compilation, utilisation (syntaxe, chaque option avec un exemple vérifié, codes de sortie, exemple du sujet), tests, benchmarks (« à venir », lien prévu vers `bench/README.md`, qui n'existe pas encore), architecture, écarts connus, auteurs (`NOM1`, `NOM2` à remplacer). Les exemples du tableau des options évitent `|`, qui devrait être échappé dans un tableau Markdown.
+- `README.md` à la racine : présentation, prérequis, compilation, utilisation (syntaxe, chaque option avec un exemple vérifié, codes de sortie, exemple du sujet), tests, benchmarks (`ant bench`, lien vers `bench/README.md`), architecture, écarts connus, auteurs (`NOM1`, `NOM2` à remplacer). Les exemples du tableau des options évitent `|`, qui devrait être échappé dans un tableau Markdown.
 - Javadoc complète sur toutes les classes de `src/` et `tests/`, avec la complexité de chaque étape : Thompson (O(|R|) états ; construction en O(k³) au pire, à cause des copies et de `ajouterEtat` linéaire), fermeture ε et `move` (O(q + t)), sous-ensembles (jusqu'à 2^q états), Moore (O(n³ · s) au pire), retrait du puits (O(n · s)), table (O(1) par caractère < 256), naïf O(n²), une passe O(n), KMP O(n + m). `ant doc` : 0 avertissement.
 - Code mort supprimé : constructeurs `Afd(Etat)` et `Afn(Etat)`, `AfdCompile.getNombreEtats`, les deux enveloppes privées de `Minimisation` (`getAlphabet`, `transition`), et une condition redondante dans `Parser.parseExpression`. Les méthodes internes du `Parser` (`parseExpression`, `parseConcat`, `parseRepeat`, `parseAtom`, `avancer`, `courant`) sont devenues privées ; seuls le constructeur et `parse()` sont publics. Aucun import inutilisé. Constructeurs explicites commentés (privés pour `Main`, `AstFactory` et `TestKmp`). Aucun changement de comportement : `ant clean jar test` donne toujours 20 012 tests KMP et 1 611 OK, 0 KO.
 
-Reste à faire : benchmarks (`ant bench`, `bench/README.md`, graphiques en Python 3 + matplotlib, comme l'annonce le README), tests unitaires des autres classes (facultatif : le banc les couvre de bout en bout), rapport, archive zip.
+Reste à faire : rapport (les figures sont dans `rapport/figures/`), archive zip (sans `bench/genere/`, `bin*/`, `doc/`), tests unitaires des autres classes (facultatif : le banc les couvre de bout en bout).
 
 À savoir : les méthodes `static` de `AstFactoryI` ne sont pas héritées par `AstFactory`, donc l'interface ne contraint rien. Elle sert seulement de documentation des signatures, alignées depuis le 30/10/2026 (`createChar(Character)`, `createVide()`).
 

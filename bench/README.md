@@ -32,4 +32,7 @@ On peut aussi lancer chaque partie seule :
 | `graphiques.py` | les 7 figures PNG en noir et blanc de `rapport/figures/` (moyenne ± écart-type de l'échantillon), et les chiffres clés sur la sortie standard |
 | `../resultats/bench_jvm.csv` | une ligne par mesure : `experience, regex, fichier, taille_octets, algo, matcher, iteration, t_construction_ms, t_recherche_ms, nb_lignes, etats_afn, etats_afd, etats_min, etats_min_pointetoile`. Pour l'expérience d, `t_recherche_ms` et `nb_lignes` sont vides. |
 | `../resultats/bench_bout_en_bout.csv` | une ligne par lancement : `regex, fichier, taille_octets, programme, iteration, t_ms, nb_lignes` |
+| `ExportDot.java` | hors de `ant bench` : AFN-ε et AFD minimal d'une regex en `.dot` (`java -cp bin:bin-bench ExportDot <regex> <préfixe>`), états numérotés comme `--debug` |
+| `TraceKmp.java` | hors de `ant bench` : π, CarryOver (simple et optimisée) et trace des retours de KMP sur des fichiers (`java -cp bin:bin-bench TraceKmp <motif> [fichier...]`) |
+| `BenchUneLigne.java`, `graphique_une_ligne.py` | hors de `ant bench` : livre sur une seule ligne, matcher naïf contre une passe (même protocole, une JVM par matcher) ; commandes dans `../resultats/scenarios.md`, CSV `../resultats/bench_une_ligne.csv`, figure `fig_une_ligne.png` |
 | `genere/` | fichiers de 1 à 32 Mio, formés des lignes de `data/*.txt` (par ordre de nom) répétées sans couper de ligne. Non versionné, supprimé à la fin de `ant bench` et par `ant clean`. |

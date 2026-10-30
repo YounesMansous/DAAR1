@@ -109,7 +109,7 @@ Les options courtes peuvent être groupées (`-cn`) et placées avant ou après 
 
 Il faut un `javac` de version 11 ou plus. Sur cette machine, `openjdk-21-jdk` est installé : `javac` 21 est le compilateur par défaut, et Ant utilise ce même JDK. `--release 11` garantit que le code reste compatible Java 11.
 
-`bin/`, `bin-tests/`, `bin-bench/`, `bench/genere/`, `doc/` et `*.jar` sont dans `.gitignore`. `resultats/*.csv` et `rapport/figures/*.png` sont versionnés.
+`bin/`, `bin-tests/`, `bin-bench/`, `bench/genere/`, `doc/`, `*.jar` et `*.zip` (copies faites à la main pour un chat) sont dans `.gitignore`. `resultats/*.csv`, `resultats/*.md`, `rapport/figures/*.png` et `rapport/figures/*.dot` sont versionnés.
 
 ## Commande de référence
 
@@ -151,6 +151,11 @@ En cas de changement de l'interface, tester aussi : les codes de sortie (0, 1 et
 2. `bench_bout_en_bout.py` : 8 regex × 3 fichiers (50 Kio, 2,2 Mio, 32 Mio générés), 10 lancements chronométrés de `java -jar -c` et de `grep -E -c`. Exporte la locale UTF-8 comme `tests/verifier.sh`.
 3. `graphiques.py` : 7 PNG en noir et blanc dans `rapport/figures/`, et les chiffres clés sur stdout.
 
+Outils hors de `ant bench`, compilés avec lui par `ant compile-bench` (tout `bench/*.java` va dans `bin-bench/`), lancés depuis la racine :
+- `ExportDot <regex> <préfixe>` : AFN-ε et AFD minimal en `.dot`, états numérotés comme `--debug`. Graphviz (`dot`) n'est pas installé sur cette machine : pas de PDF.
+- `TraceKmp <motif> [fichiers]` : π, CarryOver (simple et optimisée), décompte des retours q = π[q-1] et trace du premier retour utile.
+- `BenchUneLigne <naif|unepasse>` (une JVM par matcher) puis `python3 bench/graphique_une_ligne.py` : « livre sur une seule ligne » (The Yellow Wallpaper recollé en mémoire, rien n'est écrit dans `data/`), `resultats/bench_une_ligne.csv` et `rapport/figures/fig_une_ligne.png`. Arrêt d'une configuration si une itération dépasse 10 s.
+
 Les fichiers de 1 à 32 Mio (`bench/genere/genere-NNMio.txt` : les lignes de `data/*.txt`, par ordre de nom, répétées sans couper de ligne) sont produits à l'identique par Java et par Python (vérifié avec `cmp`). Ils sont supprimés à la fin de `ant bench` et ne doivent pas être versionnés.
 
 ## État du projet (vérifié le 30/10/2026)
@@ -182,12 +187,19 @@ Performances (`ant bench` du 30/10/2026, 230 s ; moyenne ± écart-type sur 20 m
 - **Passage à l'échelle** : linéaire de 1 à 32 Mio. À 32 Mio : KMP 80 ms, une passe 105 ms, naïf 101 ms (`together`) et 68 ms (`S(a|g|r)*on`).
 - **Automates** : l'AFD de `(a|b)*a(a|b)ⁿ` a 2^(n+1) + 1 états et le minimal 2^(n+1), exactement comme la théorie (513 et 512 pour n = 8, construits en 15 à 20 ms), contre un AFN de 6n + 10 états. Sur les regex du banc, le plus gros AFD est la ligne de 73 caractères (AFN 146, AFD 74).
 - **Construction de Thompson** sur un littéral de k lettres : 0,12 ms à k = 10, 50 ms à k = 400 ; pente ≈ 2,2 entre 100 et 400, sous la borne O(k³) annoncée (le terme cubique, la recherche linéaire dans la liste des états, a une petite constante). Construction complète de R : 298 ms à k = 400 (pente ≈ 2,1).
-- **Bout en bout contre grep** : grep est 6 à 70 fois plus rapide. 50 Kio : 67 à 100 ms pour nous (démarrage de la JVM), 1,3 à 1,9 ms pour grep. 32 Mio : 334 à 421 ms pour nous, 10,5 (`zzzq`) à 80 ms pour grep. Nos temps varient peu selon la regex : la lecture et le décodage dominent.
+- **Bout en bout contre grep** : grep est 5,2 à 75,5 fois plus rapide (moyennes par cas de `bench_bout_en_bout.csv` ; l'ancienne mention « 6 à 70 » était arrondie à tort). 50 Kio : 67 à 100 ms pour nous (démarrage de la JVM), 1,3 à 1,9 ms pour grep. 32 Mio : 334 à 421 ms pour nous, 10,5 (`zzzq`) à 80 ms pour grep. Nos temps varient peu selon la regex : la lecture et le décodage dominent.
 
 Documentation (30/10/2026) :
 - `README.md` à la racine : présentation, prérequis, compilation, utilisation (syntaxe, chaque option avec un exemple vérifié, codes de sortie, exemple du sujet), tests, benchmarks (`ant bench`, lien vers `bench/README.md`), architecture, écarts connus, auteurs (`NOM1`, `NOM2` à remplacer). Les exemples du tableau des options évitent `|`, qui devrait être échappé dans un tableau Markdown.
 - Javadoc complète sur toutes les classes de `src/` et `tests/`, avec la complexité de chaque étape : Thompson (O(|R|) états ; construction en O(k³) au pire, à cause des copies et de `ajouterEtat` linéaire), fermeture ε et `move` (O(q + t)), sous-ensembles (jusqu'à 2^q états), Moore (O(n³ · s) au pire), retrait du puits (O(n · s)), table (O(1) par caractère < 256), naïf O(n²), une passe O(n), KMP O(n + m). `ant doc` : 0 avertissement.
 - Code mort supprimé : constructeurs `Afd(Etat)` et `Afn(Etat)`, `AfdCompile.getNombreEtats`, les deux enveloppes privées de `Minimisation` (`getAlphabet`, `transition`), et une condition redondante dans `Parser.parseExpression`. Les méthodes internes du `Parser` (`parseExpression`, `parseConcat`, `parseRepeat`, `parseAtom`, `avancer`, `courant`) sont devenues privées ; seuls le constructeur et `parse()` sont publics. Aucun import inutilisé. Constructeurs explicites commentés (privés pour `Main`, `AstFactory` et `TestKmp`). Aucun changement de comportement : `ant clean jar test` donne toujours 20 012 tests KMP et 1 611 OK, 0 KO.
+
+Exemples et scénarios pour le rapport (31/10/2026), dans `resultats/exemples_rapport.md` et `resultats/scenarios.md`, chaque chiffre avec sa commande ou son CSV :
+- fil rouge `Gr(e|a)*g.r` sur Metamorphosis : 294 lignes (grep aussi), 298 occurrences, toutes `Gregor` (mots `Gregor` 199, `Gregor’s` 99). R : AFN-ε 18, AFD 8, AFD minimal 6 ; `.*R` : 22, 11, 8. Figures `rapport/figures/filrouge_afn.dot` et `filrouge_afd_min.dot` (pas de PDF).
+- `Fo.g` sur Verne : 652 lignes, 655 `Fogg`. Le point lit toujours `g` (dans l'alphabet) : aucune occurrence ne passe par AUTRE ; AUTRE ne sert que dans des essais qui échouent (`For`, `Fou`, `Fo-` : 35 fois). Des occurrences par AUTRE existent dans Don Quixote (`Forgive`, `Forgotten`).
+- `ananas` : π = [0, 0, 1, 2, 3, 0], CarryOver = [-1, 0, 0, 1, 2, 3], optimisée = [-1, 0, -1, 0, -1, 3]. Dans Candide et Verne, aucun retour par π n'est utile pour `ananas` (il faudrait `ananan`, absent de `data/`) ; la trace utile est celle de `anas` sur « ananas » (Candide, ligne 3658).
+- livre sur une seule ligne (`bench_une_ligne.csv`) : `e.*zq`, naïf 362,5 ± 1,8 ms contre une passe 0,161 ± 0,003 ms (× 2 250), 3,1 ns par transition comme le pire cas ; `S(a|g|r)*on` : 0,16 ms pour les deux. Aucune exécution au-delà de 10 s. C'est l'argument qui justifie le matcher une passe par défaut, alors que le naïf gagne souvent sur les textes réels.
+- démarrage de la JVM (fichier vide, 10 lancements) : 59,6 ± 3,7 ms, contre 1,2 ms pour grep.
 
 Reste à faire : rapport (les figures sont dans `rapport/figures/`), archive zip (sans `bench/genere/`, `bin*/`, `doc/`), tests unitaires des autres classes (facultatif : le banc les couvre de bout en bout).
 

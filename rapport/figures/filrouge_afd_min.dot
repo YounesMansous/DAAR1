@@ -1,0 +1,21 @@
+digraph automate {
+  rankdir=LR;
+  label="AFD minimal (sans puits) de Gr(e|a)*g.r";
+  labelloc=t;
+  node [shape=circle, fontname="Helvetica"];
+  edge [fontname="Helvetica"];
+  debut [shape=point, width=0];
+  q0 [shape=doublecircle];
+  q1;
+  q2;
+  q3;
+  q4;
+  q5;
+  debut -> q1;
+  q1 -> q2 [label="G"];
+  q2 -> q3 [label="r"];
+  q3 -> q3 [label="a, e"];
+  q3 -> q4 [label="g"];
+  q4 -> q5 [label="AUTRE, G, a, e, g, r"];
+  q5 -> q0 [label="r"];
+}

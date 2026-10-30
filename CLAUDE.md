@@ -50,7 +50,7 @@ Automates (`automate/Afn`, `Afd`, `Etat`, `Transition`) : les symboles sont des 
 javac --release 11 -encoding UTF-8 -d bin $(find src -name '*.java')
 ```
 
-Il faut un `javac` de version 11 ou plus (Ant aussi en a besoin, via `JAVA_HOME`). Sur cette machine, le `javac` par défaut est en version 8 et ne compile pas le projet, et Java 21 n'est installé que sous forme de JRE. Solution : installer un JDK (`sudo apt install openjdk-21-jdk`). En dépannage, le JDK embarqué dans l'extension Java de VS Code fonctionne (`~/.vscode/extensions/redhat.java-*/jre/*/bin/javac`).
+Il faut un `javac` de version 11 ou plus. Sur cette machine, `openjdk-21-jdk` est installé : `javac` 21 est le compilateur par défaut, et Ant utilise ce même JDK. `--release 11` garantit que le code reste compatible Java 11.
 
 `bin/` ne doit pas être commité.
 

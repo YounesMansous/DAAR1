@@ -4,3 +4,4 @@ bin-bench/
 bench/genere/
 doc/
 *.jar
+*.zip

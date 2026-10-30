@@ -1,0 +1,63 @@
+# Regex du banc de vérification (tests/verifier.sh).
+# Une regex par ligne, lue telle quelle (espaces compris).
+# Les lignes qui commencent par # sont des commentaires.
+# Une ligne vide est la regex vide '' : ne pas ajouter de ligne vide
+# pour aérer le fichier.
+# Jamais de + ? [ ] { } ^ $ \ : ce sont des opérateurs pour grep -E,
+# mais des lettres pour notre parser.
+#
+# --- Littéraux courts (KMP) ---
+a
+the
+# --- Littéraux moyens (KMP) ---
+Elizabeth
+Babylon
+Passepartout
+# --- Littéral à bord non trivial (KMP) : « anas » dans « ananas »
+# n'est trouvé que si l'échec reprend au bord « a » (π), et non à 0 ---
+anas
+# --- Littéraux longs (KMP) ---
+It is a truth universally acknowledged
+husband in the_ Spectator, _who describes, with all the gusto and all the
+# --- Alternatives simples ---
+Darcy|Bingley
+cat|dog|mouse
+# --- Alternatives imbriquées ---
+(Mr|Mrs) (Darcy|Bennet)
+((a|b)|(c|d))e
+th(e|(a|i)n)k
+# --- Étoiles simples ---
+ab*c
+lo*k
+# --- Étoiles imbriquées ---
+(a*)*
+(ab*)*c
+((a|b)*c)*d
+(a*b*)*x
+# --- Point seul, .* et point combiné ---
+.
+.*
+a.c
+S.on
+(a|.)b
+h.*e.*r
+.(Bab|Ass)y
+# --- Mot vide : '', a|, (), (a|)b ---
+
+a|
+()
+(a|)b
+# --- Caractères accentués et typographiques ---
+é
+déjà
+Ça
+’
+“.
+n’t
+l’(a|e)
+# --- Motifs qui ne trouvent rien ---
+zzzq
+Sargonzzz
+# --- Motifs du sujet ---
+S(a|g|r)*on
+(Merodach|Sargon).*wall

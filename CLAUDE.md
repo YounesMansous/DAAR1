@@ -117,7 +117,7 @@ LC_ALL=C.UTF-8 grep -E 'MOTIF' FICHIER        # Linux
 LC_ALL=en_US.UTF-8 grep -E 'MOTIF' FICHIER    # macOS
 ```
 
-La locale UTF-8 est indispensable : elle fait correspondre `.` à un **caractère** et non à un octet, comme un `char` en Java. Les fichiers de `data/` sont en UTF-8 (« ’ », « “ »…). Ils ne contiennent ni caractère hors du plan multilingue de base (un caractère = un `char`), ni `\r`.
+La locale UTF-8 est indispensable : elle fait correspondre `.` à un **caractère** et non à un octet, comme un `char` en Java. Les fichiers de `data/` sont en UTF-8 (« ’ », « “ »…). Ils ne contiennent ni caractère hors du plan multilingue de base (un caractère = un `char`), ni `\r`, ni octet nul. `babylon-56667.txt` commence par un BOM UTF-8 : U+FEFF est un caractère ordinaire pour grep comme pour nous, et le banc le confirme. La liste des textes et leur provenance sont dans `tests/README.md`.
 
 Dans le shell de Claude Code, `grep` peut être une fonction qui redirige vers ugrep. Utiliser `command grep -E` (ou `/usr/bin/grep -E`, GNU grep 3.11) pour obtenir la vraie référence.
 
@@ -125,53 +125,37 @@ Dans le shell de Claude Code, `grep` peut être une fonction qui redirige vers u
 
 Après **toute** modification du moteur (`parser/`, `ast/`, `automate/`, `experimentation/`, `kmp/`) :
 
-1. reconstruire et tester : `ant clean jar test` (ou `make clean jar test`) ;
-2. comparer la sortie du programme avec la commande de référence sur **chaque** fichier `data/*.txt`, avec des motifs qui couvrent chaque opérateur ;
-3. traiter toute différence comme un bug et la corriger avant de continuer.
+1. reconstruire et tester : `ant clean jar test` (ou `make clean jar test`). Cela lance `TestKmp`, puis le banc `tests/verifier.sh`, qui compare le jar à la commande de référence sur toutes les regex et tous les textes ;
+2. traiter tout KO comme un bug et en expliquer la cause avant de corriger le moteur.
 
-Boucle de comparaison. Elle compte quatre passes, chacune en sortie par défaut puis avec `-n` : automate avec le matcher naïf, automate avec le matcher une passe, KMP sur les motifs littéraux seulement, puis les options par défaut (`--algo=auto`).
+`tests/verifier.sh` peut aussi se lancer seul (`-v` affiche aussi les OK). Il dure environ 1 min 45 sur 8 cœurs.
 
-```bash
-compare() {  # $1 = options de Main, $2 = motif, $3 = fichier
-  diff <(java -jar egrep-clone.jar $1 "$2" "$3") <(LC_ALL=C.UTF-8 command grep -E "$2" "$3") > /dev/null \
-    && echo "OK     [$1] $3  $2" || echo "ECHEC  [$1] $3  $2"
-  diff <(java -jar egrep-clone.jar $1 -n "$2" "$3") <(LC_ALL=C.UTF-8 command grep -n -E "$2" "$3") > /dev/null \
-    && echo "OK -n  [$1] $3  $2" || echo "ECHEC -n  [$1] $3  $2"
-}
-litteraux=('the' 'Elizabeth' 'Darcy' 'Sargon' 'abab' 'aab' 'Danatoff’s' 'é' \
-           'husband in the_ Spectator, _who describes, with all the gusto and all the')
-motifs=('S.on' 'a.c' 'D.r.y' 'm.n' '.' 'a.*b' '(a|.)b' '(th|wh)e*n' 'S(a|g|r)*on' \
-        '(a|b)*c(d|e)*f' 'ab*c' '(Dar|Bing)ley' 'th(e|a)*t' \
-        '' 'a|' '|a' '()' '(a|)b' '“.' '(’|“)(s|M)' 'n’*t' "${litteraux[@]}")
-for f in data/*.txt; do
-  for m in "${motifs[@]}"; do
-    compare "--algo=automate --matcher=naif" "$m" "$f"
-    compare "--algo=automate --matcher=unepasse" "$m" "$f"
-    compare "" "$m" "$f"
-  done
-  for m in "${litteraux[@]}"; do
-    compare "--algo=kmp" "$m" "$f"
-  done
-done
-```
+### Dossier de tests
 
-Les motifs qui contiennent « ’ », « “ » ou « é » testent la table de secours d'`AfdCompile` et KMP sur des caractères de code ≥ 256. Le dernier littéral (73 caractères) est la plus longue ligne de prose de `text1.txt` sans caractère spécial pour nous ni pour `grep -E`.
+- `tests/telecharger_textes.sh` : télécharge 7 livres Gutenberg dans `data/`, supprime les `\r`, vérifie l'UTF-8 et la limite de 6 Mo. Il est relançable et saute les fichiers déjà présents.
+- `tests/regex.txt` : 41 regex groupées par catégorie, avec `#` pour les commentaires et une ligne vide pour la regex vide (ne pas ajouter de ligne vide pour aérer). Les catégories : littéraux courts, moyens et longs ; littéral à bord ; alternatives simples et imbriquées ; étoiles simples et imbriquées ; point ; mot vide ; accents et typographie ; motifs sans résultat ; motifs du sujet. Jamais de `+ ? [ ] { } ^ $ \`.
+- `tests/verifier.sh` : pour chaque (regex, texte), compare octet par octet la sortie standard et le code de sortie de `java -jar egrep-clone.jar` à ceux de `command grep -E` en locale UTF-8. Cinq configurations : défaut, `--algo=automate --matcher=naif`, `--algo=automate --matcher=unepasse`, `--algo=kmp` (littéraux seulement : non vides, sans `| * . ( )`) et `-n` contre `grep -n -E`. Les sorties de grep sont calculées une seule fois, puis les comparaisons tournent en parallèle (`xargs -P`, un processus par cœur). Le script affiche les KO au fil de l'eau, puis un bilan par configuration, et renvoie 1 s'il y a au moins un KO. Il construit le jar s'il est absent.
+- `tests/TestKmp.java` : voir la section KMP.
+- `tests/README.md` : provenance des textes et mode d'emploi.
+
+Pour vérifier que le banc détecte bien les erreurs, lancez-le avec un jar construit à partir de sources volontairement fausses, copiées dans un dossier temporaire. Le littéral à bord `anas` (trouvé dans « ananas », dans `candide-4650.txt` et `tour-du-monde-800.txt`) est le seul motif qui révèle un KMP qui repartirait de 0 au lieu de π[q-1].
 
 En cas de changement de l'interface, tester aussi : les codes de sortie (0, 1 et 2, comparés à grep), `-c`, la lecture sur l'entrée standard (`cat f | java -jar egrep-clone.jar m`) et le fait que stdout reste identique à grep avec `--debug` et `--stats`. Pour tester une autre locale (`LC_ALL=C`), copier `egrep-clone.jar` et `data/` dans un chemin en ASCII : le « é » de `Téléchargements` empêche la JVM de trouver ses classes en locale C.
 
 ## État du projet (vérifié le 30/10/2026)
 
-Conformes (396 comparaisons, toutes avec un diff identique) :
-- les 30 motifs de la boucle ci-dessus, sur les deux fichiers, avec l'automate et le matcher naïf, avec l'automate et le matcher une passe, et avec les options par défaut ;
-- les 9 motifs littéraux avec `--algo=kmp` ;
-- à chaque fois en sortie par défaut et avec `-n`.
+Conformes : `ant test` réussit.
+- `TestKmp` réussit ses 20 012 tests.
+- `tests/verifier.sh` : 1 611 comparaisons, 0 KO (41 regex × 9 textes ; 369 OK pour chacune des configurations défaut, naïf, une passe et `-n`, et 135 pour KMP).
+- Testés à la main : `-c`, l'entrée standard, `--stats` et `--debug` (stdout inchangé), `LC_ALL=C`, et les codes de sortie 0, 1 et 2.
+- `S(a|g|r)*on` trouve 30 lignes dans `babylon-56667.txt`, et `(Merodach|Sargon).*wall` en trouve 4.
 
-`TestKmp` réussit ses 20 012 tests.
+Le banc détecte bien les erreurs : avec un jar qui cumule un KMP faux et un `AfdCompile` faux, il trouve 515 KO dans les cinq configurations et renvoie 1.
 
-Build (vérifié le 30/10/2026) :
-- `ant clean jar` produit un `egrep-clone.jar` de 42 Ko, en version de classe 55, sans `TestKmp`, et la boucle passe entièrement avec ce jar ;
+Build :
+- `ant clean jar` produit un `egrep-clone.jar` de 42 Ko, en version de classe 55, sans `TestKmp` ;
 - `make test` réussit ;
-- la cible `test` échoue (code 2) si `TestKmp` échoue (testé avec un `Kmp` volontairement faux) ou si `tests/verifier.sh` sort en erreur. C'est aussi le cas de `-c`, de l'entrée standard, de `--stats` et `--debug` (stdout inchangé), de `LC_ALL=C` et des codes de sortie 0, 1 et 2. `S(a|g|r)*on` trouve 0 ligne dans les deux fichiers, donc il ne teste rien en pratique.
+- la cible `test` échoue (code 2) si `TestKmp` échoue ou si `tests/verifier.sh` trouve un KO.
 
 Écarts connus avec GNU `grep -E`, hors de l'ERE simplifiée :
 
@@ -201,9 +185,9 @@ KMP contre automate une passe sur `data/text1.txt` (`--stats`, médiane de 5 lan
 | `Darcy` | 5 | 429 | 37 ms | 46 ms | 6 |
 | `Sargon` | 6 | 0 | 37 ms | 48 ms | 7 |
 | `abab` | 4 | 0 | 36 ms | 48 ms | 5 |
-| ligne de 73 caractères (voir la boucle) | 73 | 1 | 35 ms | 45 ms | 74 |
+| ligne de 73 caractères (dans `tests/regex.txt`) | 73 | 1 | 35 ms | 45 ms | 74 |
 
-Reste à faire : benchmarks (`ant bench`), `tests/verifier.sh` (la cible `test` le lancera), tests des autres classes (seul `tests/TestKmp.java` existe), Javadoc (présente sur `Main`, `Affichage`, `Parser`, `FileSearcher`, `ResultatRecherche`, `Matcher`, `MatcherNaif`, `MatcherUnePasse`, `AfdCompile`, `ConstructionAutomate`, `Kmp`, `TestKmp`, `AstVide`, `AstFactory`, `Etat`, `Minimisation.minimiser`, et sur les ajouts dans `Afd` et `Determinisation` ; absente ailleurs), README (vide), rapport.
+Reste à faire : benchmarks (`ant bench`), tests unitaires des autres classes (facultatif : le banc les couvre de bout en bout), Javadoc (présente sur `Main`, `Affichage`, `Parser`, `FileSearcher`, `ResultatRecherche`, `Matcher`, `MatcherNaif`, `MatcherUnePasse`, `AfdCompile`, `ConstructionAutomate`, `Kmp`, `TestKmp`, `AstVide`, `AstFactory`, `Etat`, `Minimisation.minimiser`, et sur les ajouts dans `Afd` et `Determinisation` ; absente ailleurs), README (vide), rapport.
 
 À savoir : les méthodes `static` de `AstFactoryI` ne sont pas héritées par `AstFactory`, donc l'interface ne contraint rien. Elle sert seulement de documentation des signatures, alignées depuis le 30/10/2026 (`createChar(Character)`, `createVide()`).
 

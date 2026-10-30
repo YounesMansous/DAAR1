@@ -1,19 +1,39 @@
 package parser;
 
-import java.util.Scanner;
-
-import ast.*;
+import ast.AstFactory;
 import ast.interfaces.AstI;
 
+/**
+ * Analyseur syntaxique par descente récursive d'une ERE simplifiée
+ * (parenthèses, alternative |, concaténation, étoile *, point .,
+ * lettres). Produit l'AST de la regex.
+ *
+ * Grammaire :
+ * <pre>
+ *   expression ::= concat ('|' concat)*
+ *   concat     ::= repeat+ | (vide)
+ *   repeat     ::= atome '*'*
+ *   atome      ::= '(' expression ')' | '.' | lettre
+ * </pre>
+ */
 public class Parser {
 
     private String re;
     private int position = 0;
 
+    /**
+     * @param re la regex à analyser
+     */
     public Parser(String re){
         this.re = re;
     }
 
+    /**
+     * Analyse toute la regex.
+     *
+     * @return la racine de l'AST
+     * @throws RuntimeException si la regex est invalide
+     */
     public AstI parse() {
         AstI ast = parseExpression();
 
@@ -27,6 +47,11 @@ public class Parser {
         return ast;
     }
 
+    /**
+     * Analyse une alternative : concat ('|' concat)*.
+     *
+     * @return l'AST de l'alternative
+     */
     public AstI parseExpression() {
         AstI gauche = parseConcat();
 
@@ -44,12 +69,21 @@ public class Parser {
         return gauche;
     }
 
+    /**
+     * Analyse une concaténation. Si elle est vide (fin de la regex,
+     * « | » ou « ) »), renvoie un nœud mot vide, comme grep -E pour
+     * « », « a| », « |a », « a||b » et « () ».
+     *
+     * @return l'AST de la concaténation
+     */
     public AstI parseConcat() {
+        if (finDeConcat()) {
+            return AstFactory.createVide();
+        }
+
         AstI gauche = parseRepeat();
 
-        while (position < re.length()
-                && courant() != ')'
-                && courant() != '|') {
+        while (!finDeConcat()) {
 
             AstI droite = parseRepeat();
 
@@ -59,6 +93,11 @@ public class Parser {
         return gauche;
     }
 
+    /**
+     * Analyse un atome suivi d'étoiles éventuelles.
+     *
+     * @return l'AST de la répétition
+     */
     public AstI parseRepeat() {
         AstI ast = parseAtom();
 
@@ -70,6 +109,11 @@ public class Parser {
         return ast;
     }
 
+    /**
+     * Analyse un atome : sous-expression parenthésée, point ou lettre.
+     *
+     * @return l'AST de l'atome
+     */
     public AstI parseAtom(){
         if (position >= re.length()) {
             throw new RuntimeException("Expression invalide : fin inattendue");
@@ -111,83 +155,20 @@ public class Parser {
         return AstFactory.createChar(c);
     }
 
+    /** Passe au caractère suivant de la regex. */
     public void avancer(){
         position++;
     }
 
+    /** @return le caractère courant de la regex */
     public char courant() {
-    return re.charAt(position);
-}
-
-private static void afficherAst(AstI ast, String prefix, boolean dernier) {
-    if (ast == null) {
-        return;
+        return re.charAt(position);
     }
 
-    System.out.print(prefix);
-    System.out.print(dernier ? "└── " : "├── ");
-
-    if (ast instanceof AstChar) {
-        AstChar c = (AstChar) ast;
-        System.out.println("CHAR(\"" + c.getValeur() + "\")");
+    // Une concaténation s'arrête à la fin de la regex, sur | ou sur )
+    private boolean finDeConcat() {
+        return position >= re.length()
+            || courant() == '|'
+            || courant() == ')';
     }
-    else if (ast instanceof AstDot) {
-        System.out.println("DOT(.)");
-    }
-    else if (ast instanceof AstConcat) {
-        System.out.println("CONCAT");
-    }
-    else if (ast instanceof AstOr) {
-        System.out.println("OR");
-    }
-    else if (ast instanceof AstRepeat) {
-        System.out.println("STAR(*)");
-    }
-    else {
-        System.out.println(ast.getClass().getSimpleName());
-    }
-
-    String nouveauPrefix = prefix + (dernier ? "    " : "│   ");
-
-    AstI gauche = ast.getFilsGauche();
-    AstI droite = ast.getFilsDroit();
-
-    if (gauche != null && droite != null) {
-        afficherAst(gauche, nouveauPrefix, false);
-        afficherAst(droite, nouveauPrefix, true);
-    }
-    else if (gauche != null) {
-        afficherAst(gauche, nouveauPrefix, true);
-    }
-    else if (droite != null) {
-        afficherAst(droite, nouveauPrefix, true);
-    }
-}
-
-public static void main(String[] args) {
-
-    Scanner scanner = new Scanner(System.in);
-
-    System.out.print("Entrez une expression régulière : ");
-    String regex = scanner.nextLine();
-
-    try {
-        Parser parser = new Parser(regex);
-
-        AstI ast = parser.parse();
-
-        System.out.println();
-        System.out.println("Expression valide !");
-        System.out.println("AST :");
-        System.out.println();
-
-        afficherAst(ast, "", true);
-
-    } catch (RuntimeException e) {
-        System.err.println();
-        System.err.println("Erreur : " + e.getMessage());
-    }
-
-    scanner.close();
-}
 }

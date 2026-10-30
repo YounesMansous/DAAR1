@@ -25,19 +25,19 @@ motif ─► Parser ─► AST ─► AFN-ε ─► AFD ─► AFD minimal ─�
 
 | Étape | Classe(s) | Rôle |
 |---|---|---|
-| Analyse syntaxique | `parser/Parser` | Descente récursive : `parseExpression` (`\|`) → `parseConcat` → `parseRepeat` (`*`) → `parseAtom` (lettre, `.`, `( )`). |
-| AST | `ast/` : `AstChar`, `AstDot`, `AstConcat`, `AstOr`, `AstRepeat`, créés par `AstFactory` | Arbre binaire, parcouru avec le patron visiteur (`ast/interfaces/AstVisitor`). |
-| AFN-ε | `automate/AstToAfnVisitor` | Construction d'Aho-Ullman : un AFN par nœud, reliés par des ε-transitions. |
+| Analyse syntaxique | `parser/Parser` | Descente récursive : `parseExpression` (`\|`) → `parseConcat` → `parseRepeat` (`*`) → `parseAtom` (lettre, `.`, `( )`). Une concaténation vide (motif vide, `a\|`, `\|a`, `a\|\|b`, `()`) produit `AstVide`, comme `grep -E` qui accepte tous ces cas. |
+| AST | `ast/` : `AstChar`, `AstDot`, `AstVide`, `AstConcat`, `AstOr`, `AstRepeat`, créés par `AstFactory` | Arbre binaire, parcouru avec le patron visiteur (`ast/interfaces/AstVisitor`). |
+| AFN-ε | `automate/AstToAfnVisitor` | Construction d'Aho-Ullman : un AFN par nœud, reliés par des ε-transitions. `AstVide` donne un seul état, à la fois initial et final. |
 | AFD | `automate/Determinisation` | Méthode des sous-ensembles (fermeture ε + `move`). |
 | AFD minimal | `automate/Minimisation` | Algorithme de Moore : suppression des états inaccessibles, complétion par un état puits, raffinement des partitions jusqu'au point fixe. |
-| Recherche | `experimentation/AfdMatcher`, `experimentation/FileSearcher` | `AfdMatcher` teste chaque position de départ de la ligne ; `FileSearcher` lit le fichier en UTF-8, ligne par ligne. |
+| Recherche | `experimentation/AfdMatcher`, `FileSearcher`, `ResultatRecherche` | `AfdMatcher` teste chaque position de départ de la ligne. `FileSearcher` lit un `BufferedReader` (fichier ou entrée standard) ligne par ligne et renvoie un `ResultatRecherche` (lignes trouvées avec leur numéro, compteurs). Il n'imprime rien. |
 | KMP (prévu) | à créer | Pour les motifs qui ne sont qu'une concaténation de lettres (ni `.`, ni `\|`, ni `*`, ni parenthèses). |
 
 Automates (`automate/Afn`, `Afd`, `Etat`, `Transition`) : les symboles sont des `String`. Dans l'AFN, l'ε-transition est le symbole `"EPSILON"` et le point est le symbole `"."`.
 
 Gestion du point dans l'AFD : l'alphabet (`Afd.getAlphabet()`, calculé par `Determinisation`, recopié par `Minimisation`) contient les lettres de la regex, plus `Afd.AUTRE` si la regex contient un point. `AUTRE` représente « n'importe quel caractère absent de l'alphabet ». `move(S, c)` suit les transitions sur `c` et sur `"."` ; `move(S, AUTRE)` ne suit que celles sur `"."`. `AfdMatcher` remplace par `AUTRE` tout caractère lu qui n'est pas dans l'alphabet. Il n'y a pas de retour arrière : tout est dans l'automate.
 
-`Main` enchaîne tout le pipeline et affiche l'AST et les automates.
+`Main` lit les arguments, enchaîne le pipeline et décide seul de l'affichage. `affichage/Affichage` contient tout le code d'affichage de l'AST et des automates (pour `--debug`), et écrit sur le flux qu'on lui passe.
 
 ## Conventions
 
@@ -46,15 +46,29 @@ Gestion du point dans l'AFD : l'alphabet (`Afd.getAlphabet()`, calculé par `Det
 - Aucune bibliothèque externe : uniquement la bibliothèque standard Java.
 - Javadoc courte sur chaque classe et chaque méthode publique.
 
-## Compilation
+## Compilation et lancement
 
 ```bash
 javac --release 11 -encoding UTF-8 -d bin $(find src -name '*.java')
+
+java -cp bin Main [options] "regex" [fichier]      # sans fichier (ou avec -) : entrée standard
+cat data/text1.txt | java -cp bin Main 'a.c'
 ```
+
+| Option | Effet |
+|---|---|
+| (aucune) | lignes qui contiennent le motif, telles quelles, comme `grep -E` |
+| `-c` | nombre de lignes trouvées seulement (prioritaire sur `-n`, comme grep) |
+| `-n` | préfixe `numéro:` devant chaque ligne, comme `grep -n` |
+| `--debug` | AST, AFN-ε, AFD, AFD minimal (avec alphabet) et bilan des tailles, **sur stderr** |
+| `--stats` | temps de construction de l'automate et temps de recherche en ms, et compteurs, **sur stderr** |
+| `--` | fin des options (motif qui commence par `-`) |
+
+Les options courtes peuvent être groupées (`-cn`) et placées avant ou après la regex. La sortie standard ne contient que le résultat, même avec `--debug` et `--stats`. Codes de sortie : 0 si au moins une ligne est trouvée, 1 si aucune, 2 en cas d'erreur (regex invalide, fichier introuvable, texte non UTF-8, regex manquante, option inconnue, trop d'arguments). En cas d'erreur, le message et l'usage vont sur stderr. Lecture en UTF-8 strict ; `System.out` et `System.err` sont des `PrintStream` UTF-8, et les fins de ligne sont des `\n`, quelle que soit la locale.
 
 Il faut un `javac` de version 11 ou plus. Sur cette machine, `openjdk-21-jdk` est installé : `javac` 21 est le compilateur par défaut, et Ant utilise ce même JDK. `--release 11` garantit que le code reste compatible Java 11.
 
-`bin/` ne doit pas être commité.
+`bin/` et `*.jar` sont dans `.gitignore`.
 
 ## Commande de référence
 
@@ -75,33 +89,37 @@ Après **toute** modification du moteur (`parser/`, `ast/`, `automate/`, `experi
 2. comparer la sortie du programme avec la commande de référence sur **chaque** fichier `data/*.txt`, avec des motifs qui couvrent chaque opérateur ;
 3. traiter toute différence comme un bug et la corriger avant de continuer.
 
-Tant que `Main` est interactif (il lit le motif, le chemin et « o/n » sur l'entrée standard, puis préfixe chaque ligne trouvée par « N: »), la comparaison se fait ainsi :
+Boucle de comparaison (sortie par défaut, puis `-n`) :
 
 ```bash
 for f in data/*.txt; do
   for m in 'S.on' 'a.c' 'D.r.y' 'm.n' '.' 'a.*b' '(a|.)b' 'the' '(th|wh)e*n' 'S(a|g|r)*on' \
-           '(a|b)*c(d|e)*f' 'Elizabeth' 'ab*c' '(Dar|Bing)ley' 'th(e|a)*t'; do
-    diff <(printf '%s\n%s\no\n' "$m" "$f" | java -cp bin Main | sed -n 's/^\([0-9][0-9]*\): /\1:/p') \
-         <(LC_ALL=C.UTF-8 command grep -n -E "$m" "$f") > /dev/null \
+           '(a|b)*c(d|e)*f' 'Elizabeth' 'ab*c' '(Dar|Bing)ley' 'th(e|a)*t' \
+           '' 'a|' '|a' '()' '(a|)b'; do
+    diff <(java -cp bin Main "$m" "$f") <(LC_ALL=C.UTF-8 command grep -E "$m" "$f") > /dev/null \
       && echo "OK     $f  $m" || echo "ECHEC  $f  $m"
+    diff <(java -cp bin Main -n "$m" "$f") <(LC_ALL=C.UTF-8 command grep -n -E "$m" "$f") > /dev/null \
+      && echo "OK -n  $f  $m" || echo "ECHEC -n  $f  $m"
   done
 done
 ```
 
-Une fois l'interface `egrep MOTIF FICHIER` en place, comparer directement les deux sorties avec `diff`, sans `-n`.
+En cas de changement de l'interface, tester aussi : les codes de sortie (0, 1 et 2, comparés à grep), `-c`, la lecture sur l'entrée standard (`cat f | java -cp bin Main m`) et le fait que stdout reste identique à grep avec `--debug` et `--stats`. Pour tester une autre locale (`LC_ALL=C`), copier `bin/` et `data/` dans un chemin en ASCII : le « é » de `Téléchargements` empêche la JVM de trouver ses classes en locale C.
 
 ## État du projet (vérifié le 30/10/2026)
 
-Conformes (diff ligne à ligne identique à la référence sur `data/text1.txt` et `data/text2.txt`) : les 15 motifs de la boucle ci-dessus. Le point « . » fonctionne comme caractère universel depuis le 30/10/2026 (symbole `AUTRE`). Avant, `m.n` donnait 0 ligne contre 1912 pour grep. `S(a|g|r)*on` trouve 0 ligne dans les deux fichiers, donc il ne teste rien en pratique.
+Conformes : les 20 motifs de la boucle ci-dessus, sur les deux fichiers, en sortie par défaut et avec `-n` (diff identique, 80 comparaisons). C'est aussi le cas de `-c`, de l'entrée standard, de `--stats` et `--debug` (stdout inchangé), de `LC_ALL=C` et des codes de sortie 0, 1 et 2. `S(a|g|r)*on` trouve 0 ligne dans les deux fichiers, donc il ne teste rien en pratique.
 
-Écarts restants avec `grep -E` :
+Écarts connus avec GNU `grep -E`, hors de l'ERE simplifiée :
 
-- Motif vide : `Parser` lève « fin inattendue », alors que `grep -E ''` affiche toutes les lignes.
-- Sortie : `Main` est interactif, affiche l'AST, les automates et des statistiques, et préfixe les lignes par leur numéro. Le programme final doit prendre `MOTIF FICHIER` en arguments et n'afficher que les lignes trouvées.
+- `)` sans parenthèse ouvrante et `*` en début d'expression : grep les lit comme des caractères littéraux (avec un avertissement pour `*`), nous les refusons (code 2).
+- Texte non UTF-8 : nous refusons (code 2), alors que grep affiche « binary file matches ».
 
-Reste à faire : KMP, `build.xml`, `.jar`, dossier de tests, Javadoc (absente partout), README (vide), rapport.
+Performances : `AfdMatcher` relance l'AFD depuis chaque position de la ligne (coût quadratique par ligne). `--stats` sur `a.*b` / `text1.txt` donne environ 13 ms de construction et 560 ms de recherche.
 
-À nettoyer : `main` et `afficherAst` dupliqués dans `Parser` ; champs et setters inutilisés dans `Etat` ; `AstFactoryI.createChar(String)` ne correspond pas à `AstFactory.createChar(Character)`.
+Reste à faire : KMP, `build.xml`, `.jar`, dossier de tests, Javadoc (présente sur `Main`, `Affichage`, `Parser`, `FileSearcher`, `ResultatRecherche`, `AstVide`, `AstFactory`, `Etat`, et sur les ajouts dans `Afd` et `Determinisation` ; absente ailleurs), README (vide), rapport.
+
+À savoir : les méthodes `static` de `AstFactoryI` ne sont pas héritées par `AstFactory`, donc l'interface ne contraint rien. Elle sert seulement de documentation des signatures, alignées depuis le 30/10/2026 (`createChar(Character)`, `createVide()`).
 
 ## Livrables
 

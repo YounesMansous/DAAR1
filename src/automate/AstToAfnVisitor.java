@@ -9,6 +9,7 @@ import ast.AstConcat;
 import ast.AstDot;
 import ast.AstOr;
 import ast.AstRepeat;
+import ast.AstVide;
 import ast.interfaces.AstVisitor;
 
 public class AstToAfnVisitor implements AstVisitor<Afn> {
@@ -95,6 +96,27 @@ public class AstToAfnVisitor implements AstVisitor<Afn> {
         afn.ajouterTransition(
             new Transition(debut, fin, ".")
         );
+
+        return afn;
+    }
+
+    // ==========================================
+    // MOT VIDE
+    // ==========================================
+
+    /**
+     * AFN du mot vide : un seul état, à la fois initial et final.
+     */
+    @Override
+    public Afn visit(AstVide noeud) {
+
+        Etat etat = new Etat();
+
+        Afn afn = new Afn();
+
+        afn.ajouterEtat(etat);
+        afn.setInitial(etat);
+        afn.ajouterEtatFinal(etat);
 
         return afn;
     }

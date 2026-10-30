@@ -2,64 +2,42 @@ package experimentation;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 
+/**
+ * Parcourt un texte ligne par ligne et garde les lignes
+ * qui contiennent le motif. N'affiche rien : c'est l'appelant
+ * qui décide quoi faire du résultat.
+ */
 public class FileSearcher {
 
     private final AfdMatcher matcher;
 
+    /**
+     * @param matcher le matcher construit à partir de l'AFD minimal
+     */
     public FileSearcher(AfdMatcher matcher) {
         this.matcher = matcher;
     }
 
-    public void rechercher(String chemin, boolean afficher)
+    /**
+     * Lit tout le texte et teste chaque ligne.
+     *
+     * @param lecteur texte à parcourir (fichier ou entrée standard),
+     *                déjà décodé en UTF-8
+     * @return les lignes trouvées et les compteurs de lecture
+     * @throws IOException en cas d'erreur de lecture
+     */
+    public ResultatRecherche rechercher(BufferedReader lecteur)
             throws IOException {
 
-        long lignesLues = 0;
-        long lignesTrouvees = 0;
-        long caracteresLus = 0;
+        ResultatRecherche resultat = new ResultatRecherche();
 
-        long debut = System.nanoTime();
+        String ligne;
 
-        try (BufferedReader lecteur = Files.newBufferedReader(
-                Path.of(chemin),
-                StandardCharsets.UTF_8)) {
-
-            String ligne;
-
-            while ((ligne = lecteur.readLine()) != null) {
-
-                lignesLues++;
-                caracteresLus += ligne.length();
-
-                if (matcher.contientMotif(ligne)) {
-
-                    lignesTrouvees++;
-
-                    if (afficher) {
-                        System.out.println(
-                            lignesLues + ": " + ligne
-                        );
-                    }
-                }
-            }
+        while ((ligne = lecteur.readLine()) != null) {
+            resultat.ajouterLigneLue(ligne, matcher.contientMotif(ligne));
         }
 
-        long fin = System.nanoTime();
-
-        double tempsMs = (fin - debut) / 1_000_000.0;
-
-        System.out.println();
-        System.out.println("========== RESULTATS ==========");
-        System.out.println("Lignes lues       : " + lignesLues);
-        System.out.println("Caracteres lus    : " + caracteresLus);
-        System.out.println("Lignes trouvees   : " + lignesTrouvees);
-
-        System.out.printf(
-            "Temps d'execution : %.3f ms%n",
-            tempsMs
-        );
+        return resultat;
     }
 }

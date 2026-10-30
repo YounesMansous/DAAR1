@@ -27,6 +27,12 @@ public class AfdMatcher {
 
                 String symbole = String.valueOf(ligne.charAt(i));
 
+                // Un caractere absent de la regex ne peut etre
+                // lu que par un point : il devient AUTRE
+                if (!afd.getAlphabet().contains(symbole)) {
+                    symbole = Afd.AUTRE;
+                }
+
                 courant = afd.transition(courant, symbole);
 
                 if (courant == null) {

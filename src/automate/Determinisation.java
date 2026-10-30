@@ -41,14 +41,31 @@ public class Determinisation {
     // 2. MOVE
     // ==========================================
 
+    /**
+     * Calcule les états atteints depuis un ensemble d'états
+     * en lisant un symbole.
+     * Le point « . » accepte tous les caractères : ses destinations
+     * sont ajoutées pour chaque symbole. Pour {@link Afd#AUTRE},
+     * seules les destinations du point sont possibles.
+     *
+     * @param etats   ensemble d'états de départ de l'AFN
+     * @param symbole symbole lu (lettre de l'alphabet ou AUTRE)
+     * @return les états atteints, sans fermeture epsilon
+     */
     public Set<Etat> move(Set<Etat> etats, String symbole) {
 
         Set<Etat> resultat = new HashSet<>();
 
         for (Etat etat : etats) {
 
+            if (!symbole.equals(Afd.AUTRE)) {
+                resultat.addAll(
+                    afn.destinations(etat, symbole)
+                );
+            }
+
             resultat.addAll(
-                afn.destinations(etat, symbole)
+                afn.destinations(etat, ".")
             );
         }
 
@@ -72,18 +89,25 @@ public class Determinisation {
         // CONSTRUCTION DE L'ALPHABET
         // ======================================
 
-        Set<String> alphabet = new HashSet<>();
+        // Lettres de la regex, plus AUTRE pour les caracteres
+        // qui n'y figurent pas mais que le point accepte
+        Set<String> alphabet = new TreeSet<>();
 
         for (Map<String, Set<Etat>> sorties :
                 afn.getTransitions().values()) {
 
             for (String symbole : sorties.keySet()) {
 
-                if (!symbole.equals("EPSILON")) {
+                if (symbole.equals(".")) {
+                    alphabet.add(Afd.AUTRE);
+                }
+                else if (!symbole.equals("EPSILON")) {
                     alphabet.add(symbole);
                 }
             }
         }
+
+        afd.setAlphabet(alphabet);
 
         // ======================================
         // ETAT INITIAL DE L'AFD

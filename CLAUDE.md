@@ -33,7 +33,9 @@ motif ─► Parser ─► AST ─► AFN-ε ─► AFD ─► AFD minimal ─�
 | Recherche | `experimentation/AfdMatcher`, `experimentation/FileSearcher` | `AfdMatcher` teste chaque position de départ de la ligne ; `FileSearcher` lit le fichier en UTF-8, ligne par ligne. |
 | KMP (prévu) | à créer | Pour les motifs qui ne sont qu'une concaténation de lettres (ni `.`, ni `\|`, ni `*`, ni parenthèses). |
 
-Automates (`automate/Afn`, `Afd`, `Etat`, `Transition`) : les symboles sont des `String` ; l'ε-transition est le symbole `"EPSILON"` et le point est le symbole `"."`.
+Automates (`automate/Afn`, `Afd`, `Etat`, `Transition`) : les symboles sont des `String`. Dans l'AFN, l'ε-transition est le symbole `"EPSILON"` et le point est le symbole `"."`.
+
+Gestion du point dans l'AFD : l'alphabet (`Afd.getAlphabet()`, calculé par `Determinisation`, recopié par `Minimisation`) contient les lettres de la regex, plus `Afd.AUTRE` si la regex contient un point. `AUTRE` représente « n'importe quel caractère absent de l'alphabet ». `move(S, c)` suit les transitions sur `c` et sur `"."` ; `move(S, AUTRE)` ne suit que celles sur `"."`. `AfdMatcher` remplace par `AUTRE` tout caractère lu qui n'est pas dans l'alphabet. Il n'y a pas de retour arrière : tout est dans l'automate.
 
 `Main` enchaîne tout le pipeline et affiche l'AST et les automates.
 
@@ -77,7 +79,8 @@ Tant que `Main` est interactif (il lit le motif, le chemin et « o/n » sur l'en
 
 ```bash
 for f in data/*.txt; do
-  for m in 'Elizabeth' 'ab*c' '(Dar|Bing)ley' 'th(e|a)*t' 'm.n' '.'; do
+  for m in 'S.on' 'a.c' 'D.r.y' 'm.n' '.' 'a.*b' '(a|.)b' 'the' '(th|wh)e*n' 'S(a|g|r)*on' \
+           '(a|b)*c(d|e)*f' 'Elizabeth' 'ab*c' '(Dar|Bing)ley' 'th(e|a)*t'; do
     diff <(printf '%s\n%s\no\n' "$m" "$f" | java -cp bin Main | sed -n 's/^\([0-9][0-9]*\): /\1:/p') \
          <(LC_ALL=C.UTF-8 command grep -n -E "$m" "$f") > /dev/null \
       && echo "OK     $f  $m" || echo "ECHEC  $f  $m"
@@ -89,13 +92,12 @@ Une fois l'interface `egrep MOTIF FICHIER` en place, comparer directement les de
 
 ## État du projet (vérifié le 30/10/2026)
 
-Écarts avec `grep -E` :
+Conformes (diff ligne à ligne identique à la référence sur `data/text1.txt` et `data/text2.txt`) : les 15 motifs de la boucle ci-dessus. Le point « . » fonctionne comme caractère universel depuis le 30/10/2026 (symbole `AUTRE`). Avant, `m.n` donnait 0 ligne contre 1912 pour grep. `S(a|g|r)*on` trouve 0 ligne dans les deux fichiers, donc il ne teste rien en pratique.
 
-- **`.` n'est pas un caractère universel** : il ne reconnaît que le caractère littéral « . ». `Determinisation` le range dans l'alphabet comme un symbole ordinaire, et `AfdMatcher` cherche une transition sur le caractère lu. Exemple sur `data/text1.txt` : `m.n` donne 0 ligne, contre 1912 pour grep.
+Écarts restants avec `grep -E` :
+
 - Motif vide : `Parser` lève « fin inattendue », alors que `grep -E ''` affiche toutes les lignes.
 - Sortie : `Main` est interactif, affiche l'AST, les automates et des statistiques, et préfixe les lignes par leur numéro. Le programme final doit prendre `MOTIF FICHIER` en arguments et n'afficher que les lignes trouvées.
-
-Conformes sur les deux fichiers : `Elizabeth`, `ab*c`, `(Dar|Bing)ley`, `th(e|a)*t`.
 
 Reste à faire : KMP, `build.xml`, `.jar`, dossier de tests, Javadoc (absente partout), README (vide), rapport.
 

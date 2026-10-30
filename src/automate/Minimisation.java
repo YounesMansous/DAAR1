@@ -15,22 +15,10 @@ public class Minimisation {
     // 1. RECUPERER L'ALPHABET
     // ==========================================
 
+    // L'alphabet est celui calcule par la determinisation
+    // (il contient AUTRE si la regex a un point)
     private Set<String> getAlphabet(Afd automate) {
-
-        Set<String> alphabet = new TreeSet<>();
-
-        for (Map<String, Etat> sorties :
-                automate.getTransitions().values()) {
-
-            for (String symbole : sorties.keySet()) {
-
-                if (!symbole.equals("EPSILON")) {
-                    alphabet.add(symbole);
-                }
-            }
-        }
-
-        return alphabet;
+        return automate.getAlphabet();
     }
 
     // ==========================================
@@ -82,6 +70,7 @@ public class Minimisation {
         }
 
         Afd resultat = new Afd();
+        resultat.setAlphabet(afd.getAlphabet());
 
         for (Etat etat : afd.getEtats()) {
 
@@ -137,6 +126,7 @@ public class Minimisation {
         Set<String> alphabet = getAlphabet(automate);
 
         Afd resultat = new Afd();
+        resultat.setAlphabet(alphabet);
 
         // Copier les etats
         for (Etat etat : automate.getEtats()) {
@@ -311,6 +301,7 @@ public class Minimisation {
             List<Set<Etat>> partitions) {
 
         Afd minimal = new Afd();
+        minimal.setAlphabet(getAlphabet(automate));
 
         Map<Etat, Etat> correspondance = new HashMap<>();
 

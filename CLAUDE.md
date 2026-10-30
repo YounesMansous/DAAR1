@@ -65,12 +65,29 @@ Les deux matchers lisent `ligne.charAt(i)` et la table d'`AfdCompile` : ni `Stri
 
 ## Compilation et lancement
 
-```bash
-javac --release 11 -encoding UTF-8 -d bin $(find src tests -name '*.java')
+Build avec Ant (`build.xml`) ou avec `make` (le `Makefile` ne fait qu'appeler les cibles Ant) :
 
-java -cp bin TestKmp                                # tests de KMP (code 1 au premier échec)
-java -cp bin Main [options] "regex" [fichier]      # sans fichier (ou avec -) : entrée standard
-cat data/text1.txt | java -cp bin Main 'a.c'
+| Ant | make | Effet |
+|---|---|---|
+| `ant` / `ant jar` | `make` / `make jar` | compile `src/` dans `bin/`, puis crée `egrep-clone.jar` à la racine (exécutable, `Main-Class: Main`, sans les tests). Cible par défaut. |
+| `ant compile` | `make compile` | compile `src/` dans `bin/` (UTF-8, `release 11`). Repart toujours d'un `bin/` vide : la compilation incrémentale d'Ant compare les dates à la seconde près et ne recompile pas les classes dépendantes. |
+| `ant test` | `make test` | compile `tests/` dans `bin-tests/`, lance `TestKmp`, puis `tests/verifier.sh` s'il existe. Échoue si un test échoue. |
+| `ant clean` | `make clean` | supprime `bin/`, `bin-tests/` et `egrep-clone.jar` |
+| `ant bench` | `make bench` | « à venir » |
+
+```bash
+ant clean jar
+java -jar egrep-clone.jar [options] "regex" [fichier]   # sans fichier (ou avec -) : entrée standard
+cat data/text1.txt | java -jar egrep-clone.jar 'a.c'
+```
+
+Le jar est en bytecode Java 11 (version de classe 55, à vérifier avec `javap -v -cp egrep-clone.jar Main | grep major`) : il tourne sur n'importe quel Java 11 ou plus. Sans Ant, l'équivalent à la main est :
+
+```bash
+javac --release 11 -encoding UTF-8 -d bin $(find src -name '*.java')
+javac --release 11 -encoding UTF-8 -cp bin -d bin-tests tests/*.java
+java -cp bin:bin-tests TestKmp
+java -cp bin Main [options] "regex" [fichier]
 ```
 
 | Option | Effet |
@@ -91,7 +108,7 @@ Les options courtes peuvent être groupées (`-cn`) et placées avant ou après 
 
 Il faut un `javac` de version 11 ou plus. Sur cette machine, `openjdk-21-jdk` est installé : `javac` 21 est le compilateur par défaut, et Ant utilise ce même JDK. `--release 11` garantit que le code reste compatible Java 11.
 
-`bin/` et `*.jar` sont dans `.gitignore`.
+`bin/`, `bin-tests/` et `*.jar` sont dans `.gitignore`.
 
 ## Commande de référence
 
@@ -108,7 +125,7 @@ Dans le shell de Claude Code, `grep` peut être une fonction qui redirige vers u
 
 Après **toute** modification du moteur (`parser/`, `ast/`, `automate/`, `experimentation/`, `kmp/`) :
 
-1. recompiler, puis lancer `java -cp bin TestKmp` ;
+1. reconstruire et tester : `ant clean jar test` (ou `make clean jar test`) ;
 2. comparer la sortie du programme avec la commande de référence sur **chaque** fichier `data/*.txt`, avec des motifs qui couvrent chaque opérateur ;
 3. traiter toute différence comme un bug et la corriger avant de continuer.
 
@@ -116,9 +133,9 @@ Boucle de comparaison. Elle compte quatre passes, chacune en sortie par défaut 
 
 ```bash
 compare() {  # $1 = options de Main, $2 = motif, $3 = fichier
-  diff <(java -cp bin Main $1 "$2" "$3") <(LC_ALL=C.UTF-8 command grep -E "$2" "$3") > /dev/null \
+  diff <(java -jar egrep-clone.jar $1 "$2" "$3") <(LC_ALL=C.UTF-8 command grep -E "$2" "$3") > /dev/null \
     && echo "OK     [$1] $3  $2" || echo "ECHEC  [$1] $3  $2"
-  diff <(java -cp bin Main $1 -n "$2" "$3") <(LC_ALL=C.UTF-8 command grep -n -E "$2" "$3") > /dev/null \
+  diff <(java -jar egrep-clone.jar $1 -n "$2" "$3") <(LC_ALL=C.UTF-8 command grep -n -E "$2" "$3") > /dev/null \
     && echo "OK -n  [$1] $3  $2" || echo "ECHEC -n  [$1] $3  $2"
 }
 litteraux=('the' 'Elizabeth' 'Darcy' 'Sargon' 'abab' 'aab' 'Danatoff’s' 'é' \
@@ -140,7 +157,7 @@ done
 
 Les motifs qui contiennent « ’ », « “ » ou « é » testent la table de secours d'`AfdCompile` et KMP sur des caractères de code ≥ 256. Le dernier littéral (73 caractères) est la plus longue ligne de prose de `text1.txt` sans caractère spécial pour nous ni pour `grep -E`.
 
-En cas de changement de l'interface, tester aussi : les codes de sortie (0, 1 et 2, comparés à grep), `-c`, la lecture sur l'entrée standard (`cat f | java -cp bin Main m`) et le fait que stdout reste identique à grep avec `--debug` et `--stats`. Pour tester une autre locale (`LC_ALL=C`), copier `bin/` et `data/` dans un chemin en ASCII : le « é » de `Téléchargements` empêche la JVM de trouver ses classes en locale C.
+En cas de changement de l'interface, tester aussi : les codes de sortie (0, 1 et 2, comparés à grep), `-c`, la lecture sur l'entrée standard (`cat f | java -jar egrep-clone.jar m`) et le fait que stdout reste identique à grep avec `--debug` et `--stats`. Pour tester une autre locale (`LC_ALL=C`), copier `egrep-clone.jar` et `data/` dans un chemin en ASCII : le « é » de `Téléchargements` empêche la JVM de trouver ses classes en locale C.
 
 ## État du projet (vérifié le 30/10/2026)
 
@@ -149,7 +166,12 @@ Conformes (396 comparaisons, toutes avec un diff identique) :
 - les 9 motifs littéraux avec `--algo=kmp` ;
 - à chaque fois en sortie par défaut et avec `-n`.
 
-`TestKmp` réussit ses 20 012 tests. C'est aussi le cas de `-c`, de l'entrée standard, de `--stats` et `--debug` (stdout inchangé), de `LC_ALL=C` et des codes de sortie 0, 1 et 2. `S(a|g|r)*on` trouve 0 ligne dans les deux fichiers, donc il ne teste rien en pratique.
+`TestKmp` réussit ses 20 012 tests.
+
+Build (vérifié le 30/10/2026) :
+- `ant clean jar` produit un `egrep-clone.jar` de 42 Ko, en version de classe 55, sans `TestKmp`, et la boucle passe entièrement avec ce jar ;
+- `make test` réussit ;
+- la cible `test` échoue (code 2) si `TestKmp` échoue (testé avec un `Kmp` volontairement faux) ou si `tests/verifier.sh` sort en erreur. C'est aussi le cas de `-c`, de l'entrée standard, de `--stats` et `--debug` (stdout inchangé), de `LC_ALL=C` et des codes de sortie 0, 1 et 2. `S(a|g|r)*on` trouve 0 ligne dans les deux fichiers, donc il ne teste rien en pratique.
 
 Écarts connus avec GNU `grep -E`, hors de l'ERE simplifiée :
 
@@ -181,7 +203,7 @@ KMP contre automate une passe sur `data/text1.txt` (`--stats`, médiane de 5 lan
 | `abab` | 4 | 0 | 36 ms | 48 ms | 5 |
 | ligne de 73 caractères (voir la boucle) | 73 | 1 | 35 ms | 45 ms | 74 |
 
-Reste à faire : `build.xml`, `.jar`, tests des autres classes (seul `tests/TestKmp.java` existe), Javadoc (présente sur `Main`, `Affichage`, `Parser`, `FileSearcher`, `ResultatRecherche`, `Matcher`, `MatcherNaif`, `MatcherUnePasse`, `AfdCompile`, `ConstructionAutomate`, `Kmp`, `TestKmp`, `AstVide`, `AstFactory`, `Etat`, `Minimisation.minimiser`, et sur les ajouts dans `Afd` et `Determinisation` ; absente ailleurs), README (vide), rapport.
+Reste à faire : benchmarks (`ant bench`), `tests/verifier.sh` (la cible `test` le lancera), tests des autres classes (seul `tests/TestKmp.java` existe), Javadoc (présente sur `Main`, `Affichage`, `Parser`, `FileSearcher`, `ResultatRecherche`, `Matcher`, `MatcherNaif`, `MatcherUnePasse`, `AfdCompile`, `ConstructionAutomate`, `Kmp`, `TestKmp`, `AstVide`, `AstFactory`, `Etat`, `Minimisation.minimiser`, et sur les ajouts dans `Afd` et `Determinisation` ; absente ailleurs), README (vide), rapport.
 
 À savoir : les méthodes `static` de `AstFactoryI` ne sont pas héritées par `AstFactory`, donc l'interface ne contraint rien. Elle sert seulement de documentation des signatures, alignées depuis le 30/10/2026 (`createChar(Character)`, `createVide()`).
 

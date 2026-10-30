@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Build Ant du clone d'egrep (projet 1, UE DAAR).
+
+  ant            : construit egrep-clone.jar (cible par défaut)
+  ant compile    : compile src/ dans bin/
+  ant jar        : jar exécutable egrep-clone.jar (sans les tests)
+  ant test       : compile tests/ dans bin-tests/, lance TestKmp,
+                   puis tests/verifier.sh s'il existe
+  ant clean      : supprime bin/, bin-tests/ et le jar
+  ant bench      : benchmarks (à venir)
+-->
+<project name="egrep-clone" default="jar" basedir=".">
+
+    <property name="src.dir"        value="src"/>
+    <property name="tests.dir"      value="tests"/>
+    <property name="bin.dir"        value="bin"/>
+    <property name="bin.tests.dir"  value="bin-tests"/>
+    <property name="jar.file"       value="egrep-clone.jar"/>
+
+    <!-- Bytecode Java 11 (version de classe 55) : le jar tourne
+         sur n'importe quel Java 11 ou plus -->
+    <property name="java.release"   value="11"/>
+
+    <!-- Compile le programme (src/ vers bin/). On repart toujours
+         d'un dossier vide : la compilation incrémentale d'Ant ne
+         recompile pas les classes qui dépendent d'un fichier modifié,
+         et compare les dates à la seconde près. Le projet se compile
+         en une seconde environ, donc on ne perd presque rien. -->
+    <target name="compile" description="Compile src/ dans bin/">
+        <delete dir="${bin.dir}"/>
+        <mkdir dir="${bin.dir}"/>
+        <javac srcdir="${src.dir}"
+               destdir="${bin.dir}"
+               encoding="UTF-8"
+               release="${java.release}"
+               includeantruntime="false"
+               debug="true"/>
+    </target>
+
+    <!-- Jar exécutable, avec seulement les classes du programme -->
+    <target name="jar" depends="compile"
+            description="Construit le jar exécutable egrep-clone.jar">
+        <jar destfile="${jar.file}">
+            <!-- Exclusion de sécurité si des tests ont été
+                 compilés à la main dans bin/ -->
+            <fileset dir="${bin.dir}" excludes="**/Test*.class"/>
+            <manifest>
+                <attribute name="Main-Class" value="Main"/>
+            </manifest>
+        </jar>
+    </target>
+
+    <!-- Compile les tests dans un dossier séparé -->
+    <target name="compile-tests" depends="compile">
+        <delete dir="${bin.tests.dir}"/>
+        <mkdir dir="${bin.tests.dir}"/>
+        <javac srcdir="${tests.dir}"
+               destdir="${bin.tests.dir}"
+               encoding="UTF-8"
+               release="${java.release}"
+               includeantruntime="false"
+               debug="true">
+            <classpath location="${bin.dir}"/>
+        </javac>
+    </target>
+
+    <!-- Tests unitaires puis, s'il existe, le script de comparaison
+         avec grep -E. Échoue au premier test en échec. -->
+    <target name="test" depends="test-kmp, test-verifier"
+            description="Lance TestKmp puis tests/verifier.sh s'il existe"/>
+
+    <target name="test-kmp" depends="compile-tests">
+        <java classname="TestKmp" fork="true" failonerror="true">
+            <classpath>
+                <pathelement location="${bin.dir}"/>
+                <pathelement location="${bin.tests.dir}"/>
+            </classpath>
+        </java>
+    </target>
+
+    <target name="test-verifier" depends="jar, verifier-present"
+            if="verifier.present">
+        <exec executable="bash" failonerror="true">
+            <arg value="${tests.dir}/verifier.sh"/>
+        </exec>
+    </target>
+
+    <target name="verifier-present">
+        <available file="${tests.dir}/verifier.sh"
+                   property="verifier.present"/>
+    </target>
+
+    <!-- Supprime tout ce qui est produit par le build -->
+    <target name="clean" description="Supprime bin/, bin-tests/ et le jar">
+        <delete dir="${bin.dir}"/>
+        <delete dir="${bin.tests.dir}"/>
+        <delete file="${jar.file}"/>
+    </target>
+
+    <target name="bench" description="Benchmarks (à venir)">
+        <echo message="Benchmarks : à venir."/>
+    </target>
+
+</project>

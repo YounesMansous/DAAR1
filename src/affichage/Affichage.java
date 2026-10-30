@@ -18,6 +18,8 @@ import automate.Afn;
 import automate.AutomateI;
 import automate.Etat;
 
+import kmp.Kmp;
+
 /**
  * Affichage de l'AST et des automates (mode --debug).
  * Toutes les méthodes écrivent sur le flux donné en paramètre
@@ -333,6 +335,37 @@ public final class Affichage {
 
         out.println();
         out.println("Alphabet : " + afd.getAlphabet());
+        out.println();
+        out.println("===============================");
+        out.println();
+    }
+
+    // ==================================================
+    // AFFICHAGE DE LA TABLE KMP
+    // ==================================================
+
+    /**
+     * Affiche le motif et sa table d'échec π.
+     *
+     * @param kmp le matcher KMP
+     * @param out flux de sortie
+     */
+    public static void afficherKmp(Kmp kmp, PrintStream out) {
+
+        String motif = kmp.getMotif();
+        int[] echec = kmp.getEchec();
+
+        out.println("========== KMP ==========");
+        out.println();
+        out.println("Motif : " + motif + " (" + motif.length()
+            + " caracteres)");
+        out.println();
+        out.println("  i   P[i]   pi[i]");
+
+        for (int i = 0; i < echec.length; i++) {
+            out.printf("%3d   %-4s   %5d%n", i, motif.charAt(i), echec[i]);
+        }
+
         out.println();
         out.println("===============================");
         out.println();

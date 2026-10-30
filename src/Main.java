@@ -28,6 +28,8 @@ import experimentation.MatcherNaif;
 import experimentation.MatcherUnePasse;
 import experimentation.ResultatRecherche;
 
+import kmp.Kmp;
+
 /**
  * Clone de egrep : affiche les lignes d'un fichier (ou de l'entrée
  * standard) qui contiennent le motif, exactement comme grep -E.
@@ -54,6 +56,10 @@ public class Main {
         + "  --debug   affiche l'AST et les automates sur la sortie d'erreur\n"
         + "  --stats   affiche le matcher, la taille des automates et les"
         + " temps de construction et de recherche sur la sortie d'erreur\n"
+        + "  --algo=auto       KMP si le motif est littéral, sinon"
+        + " l'automate (par défaut)\n"
+        + "  --algo=automate   toujours l'automate\n"
+        + "  --algo=kmp        toujours KMP (motif littéral obligatoire)\n"
         + "  --matcher=unepasse  recherche en une passe avec l'automate de"
         + " .*R (par défaut)\n"
         + "  --matcher=naif      relance l'automate de R depuis chaque"
@@ -114,6 +120,7 @@ public class Main {
         boolean debug = false;
         boolean stats = false;
         String typeMatcher = "unepasse";
+        String algo = "auto";
 
         List<String> positionnels = new ArrayList<>();
         boolean finOptions = false;
@@ -131,6 +138,17 @@ public class Main {
             }
             else if (arg.equals("--stats")) {
                 stats = true;
+            }
+            else if (arg.startsWith("--algo=")) {
+
+                algo = arg.substring("--algo=".length());
+
+                if (!algo.equals("auto")
+                        && !algo.equals("automate")
+                        && !algo.equals("kmp")) {
+                    return erreur(err, "algorithme inconnu : " + algo
+                        + " (auto, automate ou kmp)");
+                }
             }
             else if (arg.startsWith("--matcher=")) {
 
@@ -192,32 +210,66 @@ public class Main {
                 "regex invalide « " + regex + " » : " + e.getMessage());
         }
 
+        // KMP ne s'applique qu'a une concatenation de lettres
+        String motifLitteral = Kmp.motifLitteral(ast);
+
+        if (algo.equals("kmp") && motifLitteral == null) {
+            return erreur(
+                err,
+                "--algo=kmp exige un motif littéral (uniquement des"
+                + " caractères concaténés, sans |, *, . ni mot vide) : « "
+                + regex + " »");
+        }
+
+        boolean utiliserKmp = algo.equals("kmp")
+            || (algo.equals("auto") && motifLitteral != null);
+
         // Le matcher une passe travaille sur l'automate de .*R
         boolean unePasse = typeMatcher.equals("unepasse");
 
-        AstI astUtilise = unePasse ? MatcherUnePasse.envelopper(ast) : ast;
+        AstI astUtilise = ast;
+        ConstructionAutomate automate = null;
+        Kmp kmp = null;
+        Matcher matcher;
 
-        ConstructionAutomate automate = new ConstructionAutomate(astUtilise);
+        if (utiliserKmp) {
 
-        Matcher matcher = unePasse
-            ? new MatcherUnePasse(automate.getCompile())
-            : new MatcherNaif(automate.getCompile());
+            kmp = new Kmp(motifLitteral);
+            matcher = kmp;
+        }
+        else {
+
+            astUtilise = unePasse ? MatcherUnePasse.envelopper(ast) : ast;
+
+            automate = new ConstructionAutomate(astUtilise);
+
+            matcher = unePasse
+                ? new MatcherUnePasse(automate.getCompile())
+                : new MatcherNaif(automate.getCompile());
+        }
 
         long finConstruction = System.nanoTime();
 
         if (debug) {
+
             Affichage.afficherAst(astUtilise, err);
-            Affichage.afficherAutomate(
-                automate.getAfn(), "AFN-EPSILON", err);
-            Affichage.afficherAutomate(automate.getAfd(), "AFD", err);
-            Affichage.afficherAutomate(
-                automate.getAfdMinimal(), "AFD MINIMAL", err);
-            Affichage.afficherBilan(
-                unePasse ? ".*(" + regex + ")" : regex,
-                automate.getAfn(),
-                automate.getAfd(),
-                automate.getAfdMinimal(),
-                err);
+
+            if (utiliserKmp) {
+                Affichage.afficherKmp(kmp, err);
+            }
+            else {
+                Affichage.afficherAutomate(
+                    automate.getAfn(), "AFN-EPSILON", err);
+                Affichage.afficherAutomate(automate.getAfd(), "AFD", err);
+                Affichage.afficherAutomate(
+                    automate.getAfdMinimal(), "AFD MINIMAL", err);
+                Affichage.afficherBilan(
+                    unePasse ? ".*(" + regex + ")" : regex,
+                    automate.getAfn(),
+                    automate.getAfd(),
+                    automate.getAfdMinimal(),
+                    err);
+            }
         }
 
         // ======================================
@@ -268,21 +320,41 @@ public class Main {
         }
 
         if (stats) {
-            err.println(
-                "Matcher                    : " + typeMatcher
-                + (unePasse ? " (automate de .*R)" : " (automate de R)"));
-            err.println(
-                "Etats AFN-epsilon          : "
-                + automate.getAfn().getEtats().size());
-            err.println(
-                "Etats AFD                  : "
-                + automate.getAfd().getEtats().size());
-            err.println(
-                "Etats AFD minimal          : "
-                + automate.getAfdMinimal().getEtats().size());
-            err.printf(
-                "Construction de l'automate : %.3f ms%n",
-                (finConstruction - debutConstruction) / 1_000_000.0);
+
+            // Les temps de construction incluent l'analyse de la regex
+            double construction =
+                (finConstruction - debutConstruction) / 1_000_000.0;
+
+            if (utiliserKmp) {
+                err.println(
+                    "Algorithme                 : kmp (motif de "
+                    + motifLitteral.length() + " caracteres)");
+                err.printf(
+                    "Construction table KMP     : %.3f ms%n",
+                    construction);
+            }
+            else {
+                err.println(
+                    "Algorithme                 : automate");
+                err.println(
+                    "Matcher                    : " + typeMatcher
+                    + (unePasse
+                        ? " (automate de .*R)"
+                        : " (automate de R)"));
+                err.println(
+                    "Etats AFN-epsilon          : "
+                    + automate.getAfn().getEtats().size());
+                err.println(
+                    "Etats AFD                  : "
+                    + automate.getAfd().getEtats().size());
+                err.println(
+                    "Etats AFD minimal          : "
+                    + automate.getAfdMinimal().getEtats().size());
+                err.printf(
+                    "Construction de l'automate : %.3f ms%n",
+                    construction);
+            }
+
             err.printf(
                 "Recherche                  : %.3f ms%n",
                 (finRecherche - debutRecherche) / 1_000_000.0);

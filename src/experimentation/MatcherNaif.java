@@ -1,68 +1,51 @@
+
 package experimentation;
 
-import automate.AfdCompile;
+import automate.Afd;
+import automate.Etat;
 
-/**
- * Recherche naïve avec l'automate de R : on relance l'AFD depuis
- * chaque position de départ de la ligne, jusqu'au premier état final.
- *
- * <p>Complexité : O(n²) par ligne de longueur n dans le pire cas
- * (n départs, et jusqu'à n caractères lus pour chacun). En pratique,
- * le retrait de l'état puits arrête chaque essai dès qu'aucun état
- * final n'est plus atteignable, mais un motif comme « a.*b » lit
- * quand même toute la fin de la ligne depuis chaque « a ».</p>
- */
+// Cette classe permet de chercher un motif dans une ligne en essayant chaque position de depart
 public class MatcherNaif implements Matcher {
 
-    private final AfdCompile automate;
+    private final Afd automate;
 
-    /**
-     * Crée le matcher à partir de l'automate de R.
-     *
-     * @param automate table de transitions de l'AFD minimal de R
-     */
-    public MatcherNaif(AfdCompile automate) {
+    public MatcherNaif(Afd automate) {
         this.automate = automate;
     }
 
-    /**
-     * Pour chaque position de départ, lit la ligne avec l'AFD de R
-     * jusqu'à un état final (trouvé) ou une transition absente
-     * (essai suivant). O(n²) dans le pire cas.
-     *
-     * @param ligne une ligne du texte
-     * @return vrai si la ligne contient un mot de R
-     */
+    // On parcours la ligne depuis chaque position jusqu'a trouver le motif
     @Override
     public boolean contientMotif(String ligne) {
 
-        int initial = automate.getInitial();
+        Etat initial = automate.getInitial();
 
-        // R accepte le mot vide : toute ligne le contient
-        if (automate.estFinal(initial)) {
+        // si l'etat initial est final alors le mot vide est accepté
+        if (automate.getFinaux().contains(initial)) {
             return true;
         }
 
-        int longueur = ligne.length();
+        int n = ligne.length();
 
-        for (int debut = 0; debut < longueur; debut++) {
+        for (int deb = 0; deb < n; deb++) {
 
-            int etat = initial;
+            Etat e = initial;
 
-            for (int i = debut; i < longueur; i++) {
+            // essayer de lire les caracteres a partir de cette position
+            for (int i = deb; i < n; i++) {
 
-                etat = automate.suivant(etat, ligne.charAt(i));
+                e = automate.suivant(e, ligne.charAt(i));
 
-                if (etat == AfdCompile.AUCUNE) {
+                // si aucune transition existe on essaye la position suivante
+                if (e == null) {
                     break;
                 }
 
-                if (automate.estFinal(etat)) {
+                // si on arrive à un etat final le motif est trouvé
+                if (automate.getFinaux().contains(e)) {
                     return true;
                 }
             }
         }
-
         return false;
     }
 }

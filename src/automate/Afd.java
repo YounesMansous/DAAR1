@@ -1,24 +1,13 @@
+
 package automate;
 
 import java.util.*;
 
-/**
- * Automate fini déterministe, produit par {@link Determinisation}
- * puis réduit par {@link Minimisation}. Chaque (état, symbole) mène
- * à au plus un état ; l'automate n'est pas forcément complet : une
- * transition absente signifie un échec.
- *
- * <p>L'alphabet contient les lettres de la regex, plus {@link #AUTRE}
- * si la regex contient un point. Il est conservé avec l'automate,
- * car c'est lui qui donne les colonnes de la minimisation et de la
- * table {@link AfdCompile}.</p>
- */
+
+// méme chose que le AFN sauf que ici on une transition d'un etat peux mener a plusieurs autres etats
 public class Afd implements AutomateI<Etat> {
 
-    /**
-     * Symbole représentant n'importe quel caractère absent
-     * de l'alphabet de la regex (utilisé par le point « . »).
-     */
+    // symbole utilisé pour les caracteres qui ne sont pas directement dans l'alphabet de la regex
     public static final String AUTRE = "AUTRE";
 
     private List<Etat> etats;
@@ -26,11 +15,8 @@ public class Afd implements AutomateI<Etat> {
     private Etat initial;
     private Set<Etat> finaux;
 
-    // Symboles de l'automate : lettres de la regex, plus AUTRE
-    // si la regex contient un point
     private Set<String> alphabet;
 
-    /** Crée un AFD vide, sans état initial et d'alphabet vide. */
     public Afd() {
         this.etats = new ArrayList<>();
         this.transitions = new HashMap<>();
@@ -45,19 +31,13 @@ public class Afd implements AutomateI<Etat> {
         }
     }
 
-    /**
-     * Ajoute une transition déterministe.
-     *
-     * @param transition la transition à ajouter
-     * @throws IllegalArgumentException si c'est une ε-transition, ou
-     *         si l'état source a déjà une autre destination pour ce
-     *         symbole
-     */
+    // Ajout d'une transition, en verifiant qu'elle respecte bien le determinisme
     @Override
     public void ajouterTransition(Transition transition) {
 
         String symbole = transition.getSymbole();
 
+        // un AFD ne peut pas avoir de transitions epsilon
         if ("EPSILON".equals(symbole)) {
             throw new IllegalArgumentException(
                 "Transition epsilon interdite dans un AFD");
@@ -71,6 +51,7 @@ public class Afd implements AutomateI<Etat> {
 
         Etat existante = sorties.get(symbole);
 
+        // si une autre destination existe deja avec ce symbole alors ce n'est pas deterministe
         if (existante != null && existante != destination) {
             throw new IllegalArgumentException(
                 "Transition non deterministe sur " + symbole);
@@ -79,13 +60,7 @@ public class Afd implements AutomateI<Etat> {
         sorties.put(symbole, destination);
     }
 
-    /**
-     * Transition depuis un état.
-     *
-     * @param source  état de départ
-     * @param symbole symbole lu (lettre de l'alphabet ou {@link #AUTRE})
-     * @return l'état atteint, ou {@code null} s'il n'y a pas de transition
-     */
+    // retrouver directement la destination d'un état pour un symbole avec la hashmap
     public Etat transition(Etat source, String symbole) {
         return transitions
             .getOrDefault(source, Collections.emptyMap())
@@ -122,21 +97,24 @@ public class Afd implements AutomateI<Etat> {
         return finaux;
     }
 
-    /**
-     * Renvoie l'alphabet de l'automate.
-     *
-     * @return les symboles littéraux de la regex, plus {@link #AUTRE}
-     *         si la regex contient un point
-     */
     public Set<String> getAlphabet() {
         return alphabet;
     }
 
-    /**
-     * Remplace l'alphabet de l'automate.
-     *
-     * @param alphabet le nouvel alphabet
-     */
+    
+    // permet de trouver le prochain etat selon le caractere lu si il n'est pas dans l'alphabet on utilise AUTRE
+    public Etat suivant(Etat e, char c) {
+
+        String sym = String.valueOf(c);
+
+        if (alphabet.contains(sym)) {
+            return transition(e, sym);
+        }
+
+        return transition(e, AUTRE);
+    }
+
+
     public void setAlphabet(Set<String> alphabet) {
         this.alphabet = alphabet;
     }

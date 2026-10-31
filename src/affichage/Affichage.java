@@ -20,28 +20,11 @@ import automate.Etat;
 
 import kmp.Kmp;
 
-/**
- * Affichage de l'AST, des automates et de la table KMP (option
- * --debug). Ne fait pas partie du pipeline de recherche : Main
- * l'appelle seulement pour montrer chaque étape. Toutes les méthodes
- * écrivent sur le flux donné en paramètre (stderr dans Main), jamais
- * directement sur la sortie standard.
- */
 public final class Affichage {
 
     private Affichage() {
     }
 
-    // ==================================================
-    // AFFICHAGE DE L'AST
-    // ==================================================
-
-    /**
-     * Affiche l'AST sous forme d'arbre.
-     *
-     * @param ast racine de l'AST
-     * @param out flux de sortie
-     */
     public static void afficherAst(AstI ast, PrintStream out) {
 
         out.println("========== AST ==========");
@@ -130,16 +113,6 @@ public final class Affichage {
         }
     }
 
-    // ==================================================
-    // COMPTER LES TRANSITIONS
-    // ==================================================
-
-    /**
-     * Compte les transitions d'un AFN.
-     *
-     * @param afn un AFN
-     * @return son nombre de transitions (epsilon comprises)
-     */
     public static int compterTransitions(Afn afn) {
 
         int total = 0;
@@ -155,12 +128,6 @@ public final class Affichage {
         return total;
     }
 
-    /**
-     * Compte les transitions d'un AFD.
-     *
-     * @param afd un AFD
-     * @return son nombre de transitions
-     */
     public static int compterTransitions(Afd afd) {
 
         int total = 0;
@@ -174,12 +141,6 @@ public final class Affichage {
         return total;
     }
 
-    // ==================================================
-    // AFFICHAGE COMMUN DES ETATS
-    // ==================================================
-
-    // En-tête commun à l'AFN et à l'AFD : tailles, initial, finaux,
-    // liste des états
     private static void afficherEtats(
             AutomateI<?> automate,
             String titre,
@@ -246,17 +207,6 @@ public final class Affichage {
         out.println("Transitions :");
     }
 
-    // ==================================================
-    // AFFICHAGE DE L'AFN
-    // ==================================================
-
-    /**
-     * Affiche les états et les transitions d'un AFN.
-     *
-     * @param afn   l'automate
-     * @param titre titre de la section
-     * @param out   flux de sortie
-     */
     public static void afficherAutomate(
             Afn afn,
             String titre,
@@ -298,17 +248,6 @@ public final class Affichage {
         out.println();
     }
 
-    // ==================================================
-    // AFFICHAGE DE L'AFD
-    // ==================================================
-
-    /**
-     * Affiche l'alphabet, les états et les transitions d'un AFD.
-     *
-     * @param afd   l'automate
-     * @param titre titre de la section
-     * @param out   flux de sortie
-     */
     public static void afficherAutomate(
             Afd afd,
             String titre,
@@ -350,16 +289,6 @@ public final class Affichage {
         out.println();
     }
 
-    // ==================================================
-    // AFFICHAGE DE LA TABLE KMP
-    // ==================================================
-
-    /**
-     * Affiche le motif et sa table d'échec π.
-     *
-     * @param kmp le matcher KMP
-     * @param out flux de sortie
-     */
     public static void afficherKmp(Kmp kmp, PrintStream out) {
 
         String motif = kmp.getMotif();
@@ -381,20 +310,6 @@ public final class Affichage {
         out.println();
     }
 
-    // ==================================================
-    // BILAN DES AUTOMATES
-    // ==================================================
-
-    /**
-     * Affiche la taille de chaque automate et la réduction
-     * obtenue par la minimisation.
-     *
-     * @param regex      la regex
-     * @param afn        l'AFN-epsilon
-     * @param afd        l'AFD obtenu par déterminisation
-     * @param afdMinimal l'AFD minimal
-     * @param out        flux de sortie
-     */
     public static void afficherBilan(
             String regex,
             Afn afn,

@@ -1,0 +1,45 @@
+Buildfile: /home/fellague/Téléchargements/DAAR1/DAAR1/build.xml
+
+clean:
+   [delete] Deleting directory /home/fellague/Téléchargements/DAAR1/DAAR1/bin
+   [delete] Deleting: /home/fellague/Téléchargements/DAAR1/DAAR1/egrep-clone.jar
+
+compile:
+    [mkdir] Created dir: /home/fellague/Téléchargements/DAAR1/DAAR1/bin
+    [javac] Compiling 29 source files to /home/fellague/Téléchargements/DAAR1/DAAR1/bin
+
+jar:
+      [jar] Building jar: /home/fellague/Téléchargements/DAAR1/DAAR1/egrep-clone.jar
+
+compile:
+   [delete] Deleting directory /home/fellague/Téléchargements/DAAR1/DAAR1/bin
+    [mkdir] Created dir: /home/fellague/Téléchargements/DAAR1/DAAR1/bin
+    [javac] Compiling 29 source files to /home/fellague/Téléchargements/DAAR1/DAAR1/bin
+
+compile-tests:
+    [mkdir] Created dir: /home/fellague/Téléchargements/DAAR1/DAAR1/bin-tests
+    [javac] Compiling 1 source file to /home/fellague/Téléchargements/DAAR1/DAAR1/bin-tests
+
+test-kmp:
+     [java] 20012 tests réussis
+
+jar:
+
+verifier-present:
+
+test-verifier:
+     [exec] locale utilisée pour java et grep : C.UTF-8
+     [exec] 
+     [exec] Bilan : 41 regex × 9 fichiers, en 95 s
+     [exec]   configuration                              OK     KO
+     [exec]   defaut                                    369      0
+     [exec]   --algo=automate --matcher=naif            369      0
+     [exec]   --algo=automate --matcher=unepasse        369      0
+     [exec]   --algo=kmp (litteraux)                    135      0
+     [exec]   -n / grep -n -E                           369      0
+     [exec]   total                                    1611      0
+
+test:
+
+BUILD SUCCESSFUL
+Total time: 1 minute 36 seconds

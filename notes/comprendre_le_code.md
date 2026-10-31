@@ -280,7 +280,7 @@ En position 15, on ne repart pas de zéro : π[2] = 1 dit que le dernier `a` lu 
 - Complexité : sans objet.
 - Q : pourquoi sur la sortie d'erreur ? R : pour que la sortie standard reste identique à celle de grep, même avec `--debug`.
 
-## 5. Les 10 questions les plus probables
+## 5. Les 11 questions les plus probables
 
 **1. Pourquoi chercher `.*R` et pas R ?**
 On veut savoir si R apparaît n'importe où dans la ligne. L'automate de `.*R` arrive dans un état final exactement à la fin de la première occurrence de R. On lit donc la ligne une seule fois, de gauche à droite, en O(n).
@@ -310,4 +310,7 @@ Le démarrage de la JVM coûte à lui seul 58,5 ms, contre 1,4 ms pour grep. Ens
 Avec `(a|b)*a(a|b)…(a|b)` (n fois `(a|b)`), l'AFD a 2^(n+1) états : 512 pour n = 8, comme le prévoit la théorie. La construction prend alors 22,5 ms, mais la recherche reste en O(n), parce qu'il n'y a toujours qu'une case de table à lire par caractère.
 
 **10. Comment gérez-vous les accents et l'UTF-8 ?**
-On lit le texte en UTF-8 strict : un fichier non UTF-8 donne une erreur, code 2. En Java, un caractère est un `char`, comme `.` dans grep en locale UTF-8. Les caractères de code inférieur à 256 (`é`, `à`) ont leur colonne dans la table. Les autres (`’`, `“`) passent par une petite table triée ou par la colonne AUTRE.
+On lit le texte en UTF-8 strict : un fichier non UTF-8 donne une erreur, code 2. Jusqu'à U+FFFF, un caractère tient dans un `char` Java, et notre point lit un caractère, comme `.` dans grep en locale UTF-8. Les caractères de code inférieur à 256 (`é`, `à`) ont leur colonne dans la table. Les autres (`’`, `“`) passent par une petite table triée ou par la colonne AUTRE.
+
+**11. Que se passe-t-il avec un emoji ?**
+Un caractère au-delà de U+FFFF, comme 😀, occupe deux `char` en Java, alors que notre point n'en lit qu'un. Sur la ligne `a😀b`, grep trouve donc `a.b` et nous `a..b` : c'est un écart connu, décrit dans le README. On pourrait le corriger en lisant la ligne par point de code (`codePointAt`), mais aucun de nos textes ne contient de tel caractère.

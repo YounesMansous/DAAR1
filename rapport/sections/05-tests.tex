@@ -71,7 +71,10 @@ octet par octet notre sortie standard à celle de \texttt{grep -E}, et
 compare aussi les codes de sortie. Cela fait $41 \times 9 = 369$ cas par
 configuration, et 135 pour KMP : 1\,611 comparaisons en tout,
 \textbf{0~écart}. Le banc tourne en 100~s environ et s'arrête avec le code~1
-au moindre écart.
+au moindre écart. Aucun de nos textes ne contient de caractère au-delà de
+U+FFFF (un emoji, par exemple) : le banc ne couvre donc pas ce cas, où
+notre point lit un demi-caractère. Cet écart est décrit avec les limites
+du programme.
 
 \paragraph{Tester le banc.}
 Un banc qui ne trouve jamais rien ne prouve rien. Nous l'avons donc

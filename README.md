@@ -87,12 +87,14 @@ Le point est géré dans l'automate lui-même : le symbole `AUTRE` représente t
 
 ## Écarts connus avec `grep -E`
 
-Tous sont hors de l'ERE simplifiée du sujet :
+Les quatre premiers sont hors de l'ERE simplifiée du sujet ; le dernier concerne le point :
 
 - `)` sans parenthèse ouvrante, ou `*` en début de motif : grep les lit comme des lettres, nous les refusons (code 2) ;
 - `+ ? [ ] { } ^ $ \` sont des opérateurs pour grep, mais des lettres pour nous ;
 - texte non UTF-8 : nous le refusons (code 2), alors que grep affiche « binary file matches » ;
-- locale non UTF-8 : Java décode mal un motif non ASCII (`é`, `’`) ; le programme l'affiche en avertissement sur stderr. Lancez-le avec `LC_ALL=C.UTF-8`.
+- locale non UTF-8 : Java décode mal un motif non ASCII (`é`, `’`) ; le programme l'affiche en avertissement sur stderr. Lancez-le avec `LC_ALL=C.UTF-8` ;
+- caractère au-delà de U+FFFF (emoji…) : sur la ligne `a😀b`, grep trouve `a.b` et nous `a..b`. Java range un tel caractère dans deux `char`, et notre point lit un seul `char`.
+  La correction possible serait de lire la ligne par point de code (`codePointAt`). Aucun texte de `data/` ne contient un tel caractère.
 
 ## Auteurs
 

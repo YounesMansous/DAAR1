@@ -118,7 +118,7 @@ LC_ALL=C.UTF-8 grep -E 'MOTIF' FICHIER        # Linux
 LC_ALL=en_US.UTF-8 grep -E 'MOTIF' FICHIER    # macOS
 ```
 
-La locale UTF-8 est indispensable : elle fait correspondre `.` à un **caractère** et non à un octet, comme un `char` en Java. Les fichiers de `data/` sont en UTF-8 (« ’ », « “ »…). Ils ne contiennent ni caractère hors du plan multilingue de base (un caractère = un `char`), ni `\r`, ni octet nul. `babylon-56667.txt` commence par un BOM UTF-8 : U+FEFF est un caractère ordinaire pour grep comme pour nous, et le banc le confirme. La liste des textes et leur provenance sont dans `tests/README.md`.
+La locale UTF-8 est indispensable : elle fait correspondre `.` à un **caractère** et non à un octet, comme un `char` en Java. Les fichiers de `data/` sont en UTF-8 (« ’ », « “ »…). Ils ne contiennent ni caractère hors du plan multilingue de base (un caractère = un `char`), ni `\r`, ni octet nul. Au-delà de U+FFFF, un caractère occupe deux `char` et notre point n'en lit qu'un : c'est un écart connu avec grep (voir « Écarts connus » dans « État du projet »), que le banc ne voit pas, faute d'un tel caractère dans `data/`. `babylon-56667.txt` commence par un BOM UTF-8 : U+FEFF est un caractère ordinaire pour grep comme pour nous, et le banc le confirme. La liste des textes et leur provenance sont dans `tests/README.md`.
 
 Dans le shell de Claude Code, `grep` peut être une fonction qui redirige vers ugrep. Utiliser `command grep -E` (ou `/usr/bin/grep -E`, GNU grep 3.11) pour obtenir la vraie référence.
 
@@ -173,12 +173,13 @@ Build :
 - `make test` réussit ;
 - la cible `test` échoue (code 2) si `TestKmp` échoue ou si `tests/verifier.sh` trouve un KO.
 
-Écarts connus avec GNU `grep -E`, hors de l'ERE simplifiée :
+Écarts connus avec GNU `grep -E` (les quatre premiers hors de l'ERE simplifiée, le dernier sur le point) :
 
 - `)` sans parenthèse ouvrante et `*` en début d'expression : grep les lit comme des caractères littéraux (avec un avertissement pour `*`), nous les refusons (code 2).
 - `+ ? [ ] { } ^ $ \` : ce sont des opérateurs pour `grep -E`, mais des caractères littéraux pour notre parser (et donc pour KMP). Les motifs de test doivent les éviter.
 - Texte non UTF-8 : nous refusons (code 2), alors que grep affiche « binary file matches ».
 - Locale non UTF-8 (`LANG` vide, `LC_ALL=C`) : la JVM décode les arguments en ASCII (`sun.jnu.encoding = ANSI_X3.4-1968`), et un motif non ASCII (`é`, `’`, `“`) arrive dans `Main` sous forme de U+FFFD. La recherche est alors fausse : 146 KO au banc sur une machine sans locale. On ne peut pas corriger ce décodage une fois la JVM lancée. `Main` affiche donc un avertissement sur stderr (stdout inchangé) quand `sun.jnu.encoding` n'est pas de l'UTF-8 et que le motif contient un caractère de code > 127. **Tout script qui lance le jar (banc, benchmarks) doit exporter une locale UTF-8 pour java aussi**, pas seulement pour grep, comme le fait `tests/verifier.sh` (C.UTF-8, sinon en_US.UTF-8, choisie avec `locale -a`). Vérifié le 30/10/2026 : `env -u LANG -u LC_ALL bash tests/verifier.sh` donne 1 611 OK. Sur cette machine, sans locale, la JVM ne peut même pas ouvrir le jar, à cause du « é » de `Téléchargements` dans le chemin.
+- Caractère au-delà de U+FFFF (emoji, U+1F600 « 😀 ») : Java le range dans deux `char` (paire de substitution), et les matchers lisent `ligne.charAt(i)`, donc le point lit un demi-caractère. Vérifié le 31/10/2026 en locale C.UTF-8 sur la ligne `a😀b` : `a.b` → grep trouve (code 0), nous non (code 1) ; `a..b` → nous trouvons (code 0, naïf comme une passe), grep non (code 1). KMP n'est pas touché (motif et texte comparés `char` par `char`). Correction possible, non faite : lire par point de code (`codePointAt`) dans les matchers, `AfdCompile.suivant` (`int` au lieu de `char`), le `Parser` et `AstChar`. Aucun texte de `data/` n'en contient (voir la section « Commande de référence ») ; ne pas l'ajouter au banc, où il compterait comme un KO.
 
 Performances (`ant bench` du 30/10/2026, 230 s ; moyenne ± écart-type sur 20 mesures dans la JVM, 10 de bout en bout) :
 - **KMP contre automate une passe** (Don Quixote, 2,2 Mio en mémoire) : recherche de 3,3 ms (`III`) à 5,8 ms (littéral de 70 caractères) pour KMP, de 7,1 ms (`t’s n`) à 9,5 ms (`ire of m`) pour l'automate. Construction de 0,008 ms (`urpasses all`) à 0,032 ms (littéral de 70 caractères) pour KMP, de 0,45 ms (`III`) à 10,5 ms (littéral de 70 caractères) pour l'automate (croît avec m). Le temps de KMP dépend de la fréquence de la première lettre du motif plutôt que de m : `III` (I : 0,4 % des caractères) 3,3 ms, `t’s n` (t : 7 %) 5,3 ms.

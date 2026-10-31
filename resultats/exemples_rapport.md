@@ -40,9 +40,7 @@ java -jar egrep-clone.jar --stats -c "$R" $F               # .*R : 22 / 11 / 8
 java -cp bin:bin-bench ExportDot "$R" rapport/figures/filrouge
 ```
 
-## b. `Fo.g` sur *Le tour du monde en quatre-vingts jours* (Verne) : le symbole AUTRE
-
-Texte : `data/tour-du-monde-800.txt`. **652 lignes trouvées**, pour nous comme pour grep. Il y a 655 occurrences, toutes `Fogg` : 653 dans le mot `Fogg`, une dans `--Fogg` et une dans `Fogg--il`.
+## b. `Fo.g` dans deux livres : le symbole AUTRE
 
 **AFD minimal de R** (5 états, sans le puits) : alphabet `[AUTRE, F, g, o]`.
 
@@ -56,42 +54,57 @@ q1 --F--> q2 --o--> q3 --{AUTRE, F, g, o}--> q4 --g--> q0 (final)
 - la colonne 256 (`COLONNE_AUTRE`) sert aux caractères de code ≥ 256 absents de l'alphabet, par exemple `’`, `“` ou `—` : `suivant` les y envoie après une recherche dichotomique sans résultat dans la table de secours ;
 - on ne compare donc jamais de chaînes pendant la recherche. AUTRE n'existe qu'à la construction : à la lecture, c'est une valeur recopiée dans une colonne.
 
-**Une occurrence du texte fait-elle lire AUTRE au point ? Non.** Dans les 655 occurrences, le point lit toujours le second « g » de `Fogg`. Comme `g` est dans l'alphabet, c'est la transition `q3 --g--> q4` qui sert, pas la colonne AUTRE. AUTRE sert bien pendant la lecture du texte, mais seulement dans des essais qui échouent. Après `Fo`, le point lit `r` dans `For`, `Fort`, `Forster` et `Formose`, `u` dans `Foundation` (licence Gutenberg) et `-` dans `Fo-Kien`. Cela fait 35 lectures par AUTRE dans ce livre, toutes suivies d'un caractère autre que `g`, donc d'une absence de transition (puits retiré). Pour voir une occurrence où le point lit AUTRE, il faut changer de texte. Dans *Don Quixote*, les 8 lignes trouvées contiennent `Forgive` (7) ou `Forgotten` (1) : le point y lit `r`, qui n'est pas dans l'alphabet.
+### Le tour du monde (Verne) : le point ne lit jamais AUTRE dans une occurrence
+
+Texte : `data/tour-du-monde-800.txt`. **652 lignes trouvées**, pour nous comme pour grep. Il y a 655 occurrences, toutes `Fogg` : 653 dans le mot `Fogg`, une dans `--Fogg` et une dans `Fogg--il`.
+
+Dans les 655 occurrences, le point lit toujours le second « g » de `Fogg`. Comme `g` est dans l'alphabet, c'est la transition `q3 --g--> q4` qui sert, pas la colonne AUTRE. AUTRE sert bien pendant la lecture du texte, mais seulement dans des essais qui échouent. Après `Fo`, le point lit `r` dans `For`, `Fort`, `Forster` et `Formose`, `u` dans `Foundation` (licence Gutenberg) et `-` dans `Fo-Kien`. Cela fait 35 lectures par AUTRE, toutes suivies d'un caractère autre que `g`, donc d'une absence de transition (puits retiré).
+
+### Don Quixote : le point lit AUTRE dans chaque occurrence
+
+Texte : `data/don-quixote-996.txt`. **8 lignes trouvées**, pour nous comme pour grep, avec 8 occurrences, toutes `Forg`. Les mots sont `Forgive` (7) et `Forgotten` (1, ligne 6032). Dans les 8 occurrences, le point lit `r`, qui n'est pas dans l'alphabet {F, o, g} : c'est la colonne AUTRE qui le fait passer de q3 à q4.
+
+Exemple, ligne 18448 : « “Forgive me, child, for waking thee, but I do so that thou mayest have »
+
+| Caractère lu | Transition (AFD minimal de R) |
+|---|---|
+| `F` | q1 → q2 |
+| `o` | q2 → q3 |
+| `r` | q3 → q4 par **AUTRE** (`r` ∉ {F, o, g} : sa colonne contient la transition sur AUTRE) |
+| `g` | q4 → q0, état final : la ligne est trouvée |
+
+Le `“` qui ouvre la ligne (U+201C, code ≥ 256) passe lui aussi par AUTRE dans le matcher une passe : il n'est pas dans l'alphabet, donc `suivant` le lit dans la colonne 256.
 
 ```bash
-F=data/tour-du-monde-800.txt
-command grep -E -c 'Fo.g' $F; java -jar egrep-clone.jar -c 'Fo.g' $F   # 652, 652
-command grep -E -o 'Fo.g' $F | cut -c3 | sort | uniq -c             # 655 g
-command grep -o 'Fo.' $F | sort | uniq -c                           # 655 Fog, 24 Fou, 10 For, 1 Fo-
+for F in data/tour-du-monde-800.txt data/don-quixote-996.txt; do
+  command grep -E -c 'Fo.g' $F; java -jar egrep-clone.jar -c 'Fo.g' $F    # Verne 652 / 652 ; Don Quixote 8 / 8
+  command grep -E -o 'Fo.g' $F | cut -c3 | sort | uniq -c               # Verne : 655 g ; Don Quixote : 8 r
+  command grep -o -E '[[:alpha:]-]*Fo.g[[:alpha:]-]*' $F | sort | uniq -c
+done
+command grep -o 'Fo.' data/tour-du-monde-800.txt | sort | uniq -c       # 655 Fog, 24 Fou, 10 For, 1 Fo-
+command grep -n -E 'Fo.g' data/don-quixote-996.txt                      # lignes 6032, 18448, …
 echo x | java -jar egrep-clone.jar --algo=automate --matcher=naif --debug 'Fo.g'
-command grep -o -E '[[:alpha:]]*Fo.g[[:alpha:]]*' data/don-quixote-996.txt | sort | uniq -c
 ```
 
-## c. `ananas` et KMP
+## c. KMP : le motif `anas` sur le mot « ananas » de Candide
 
-**Fonction d'échec π** (`Kmp.getEchec()`, identique à `--debug`) et table CarryOver :
+**Fonction d'échec π** (`Kmp.getEchec()`, identique à `--debug`) et **table CarryOver sous la forme du cours**, avec m + 1 = 5 cases : CarryOver[0] = −1 ; pour 1 ≤ i ≤ m, f = π[i−1], et CarryOver[i] = CarryOver[f] si i < m et P[f] = P[i], sinon f.
 
-| i | 0 | 1 | 2 | 3 | 4 | 5 |
-|---|---|---|---|---|---|---|
-| P[i] | a | n | a | n | a | s |
-| π[i] | 0 | 0 | 1 | 2 | 3 | 0 |
-| CarryOver[i] : -1, puis π[i-1] | -1 | 0 | 0 | 1 | 2 | 3 |
-| CarryOver[i] optimisée | -1 | 0 | -1 | 0 | -1 | 3 |
-
-- **Forme simple** : CarryOver[0] = -1 et CarryOver[i] = π[i-1]. C'est ce que fait notre code : après un échec sur P[q], avec q caractères reconnus, on reprend en q = π[q-1] = CarryOver[q]. La valeur -1 signifie qu'on avance dans le texte et qu'on repart de P[0].
-- **Forme optimisée** : on parcourt i de gauche à droite, et si P[i] = P[CarryOver[i]], on pose CarryOver[i] = CarryOver[CarryOver[i]]. En i = 2 et i = 4 (`a`), le repli mènerait à P[0] = `a`, la même lettre qui vient d'échouer : on saute donc directement à -1. En i = 3 (`n`), le repli mènerait à P[1] = `n`, d'où 0. En i = 5 (`s`), P[3] = `n` ≠ `s` : on garde 3. Notre `Kmp` utilise la forme simple : sa boucle `while` refait ces comparaisons inutiles, sans changer la complexité O(n + m).
-- Les deux formes sont calculées par `bench/TraceKmp.java`. Il reste à vérifier laquelle correspond aux conventions du cours.
-
-**Trace sur nos textes : pour `ananas`, π ne sert jamais vraiment.** `TraceKmp` reprend la boucle de `Kmp.contientMotif`, contrôlée ligne par ligne contre elle, et compte les retours q = π[q-1] :
-
-| Texte | Lignes trouvées | Retours | dont q' > 0 | Retours utiles (q' > 0 et c = P[q']) | Lignes où un KMP qui remet q à 0 se trompe |
+| i | 0 | 1 | 2 | 3 | 4 |
 |---|---|---|---|---|---|
-| Candide | 1 | 12 963 | 28 (q = 3 → 1) | 0 | 0 |
-| Le tour du monde | 1 | 27 806 | 31 (30 fois q = 3 → 1, 1 fois q = 4 → 2) | 0 | 0 |
+| P[i] | a | n | a | s | — |
+| π[i] | 0 | 0 | 1 | 0 | — |
+| CarryOver[i] | −1 | 0 | −1 | 1 | 0 |
 
-L'explication tient à la forme du motif. Un retour en q' > 0 n'aide que si le caractère qui vient d'échouer prolonge le bord, c'est-à-dire si c = P[q']. Pour `ananas`, c'est impossible après un échec en q = 3 ou en q = 4, car on retombe sur la lettre qui vient d'échouer (c'est exactement le cas que la forme optimisée de CarryOver supprime). Après un échec en q = 5, cela demande un texte contenant `ananan`, et aucun fichier de `data/` n'en contient (`grep -c ananan` donne 0 partout). L'occurrence `des ananas` (Candide, ligne 3658 ; Verne, ligne 3931) se lit d'une traite, de q = 0 à q = 6, sans aucun retour.
+Le calcul, case par case :
+- i = 1 : f = π[0] = 0 ; P[0] = `a` ≠ P[1] = `n`, donc CarryOver[1] = f = 0 ;
+- i = 2 : f = π[1] = 0 ; P[0] = `a` = P[2] = `a`, donc CarryOver[2] = CarryOver[0] = −1. Si `a` échoue en position 2, il échouerait aussi contre P[0] = `a` : on avance directement dans le texte ;
+- i = 3 : f = π[2] = 1 ; P[1] = `n` ≠ P[3] = `s`, donc CarryOver[3] = 1 ;
+- i = 4 = m : f = π[3] = 0, donc CarryOver[4] = 0 (où reprendre après une occurrence complète).
 
-**Le décalage par π sert vraiment avec le motif `anas`, sur ce même « ananas »** (Candide, ligne 3658 : « limons, des ananas, des dattes, … ») :
+C'est exactement la table de `mami` dans le cours : `TraceKmp mami` donne aussi π = [0, 0, 1, 0] et CarryOver = [−1, 0, −1, 1, 0]. Notre `Kmp` n'utilise pas CarryOver : il reprend en q = π[q−1]. Sa boucle `while` refait donc la comparaison que CarryOver[2] = −1 évite, mais la complexité reste O(n + m).
+
+**La trace où π sert** (Candide, ligne 3658 : « limons, des ananas, des dattes, des pistaches, du café de Moka qui ») :
 
 | position | caractère | q avant | retour par π | q après |
 |---|---|---|---|---|
@@ -103,11 +116,14 @@ L'explication tient à la forme du motif. Un retour en q' > 0 n'aide que si le c
 | 16 | a | 2 | | 3 |
 | 17 | s | 3 | | 4 (trouvé) |
 
-En position 15, `ana` est reconnu et on attend `s`, mais on lit `n`. π[2] = 1 indique que le dernier `a` lu (position 14) peut commencer une nouvelle occurrence : on passe à q = 1 et on compare de nouveau le même `n`, sans reculer dans le texte. Un KMP faux, qui remettrait q à 0, comparerait `n` à `a`, puis lirait `a`, `s` et manquerait l'occurrence `anas`, qui commence en 14. `TraceKmp` le confirme : ce KMP faux se trompe sur 1 ligne de Candide et sur 1 ligne de Verne, celles qui contiennent « ananas ». C'est ce que dit le CLAUDE.md : `anas` est le seul motif du banc qui révèle cette erreur. Pour `anas`, π = [0, 0, 1, 0], CarryOver simple = [-1, 0, 0, 1] et CarryOver optimisée = [-1, 0, -1, 1].
+En position 15, `ana` est reconnu et on attend `s`, mais on lit `n`. π[2] = 1 (c'est aussi CarryOver[3] = 1) indique que le dernier `a` lu, en position 14, peut commencer une nouvelle occurrence. On passe donc à q = 1 et on compare de nouveau le même `n` à P[1] = `n`, sans reculer dans le texte. Un KMP faux, qui remettrait q à 0, comparerait `n` à `a`, puis lirait `a` et `s` sans retrouver le début, et manquerait l'occurrence `anas` qui commence en 14. `TraceKmp` le confirme : dans Candide, sur 12 964 retours, un seul est utile (celui-ci), et le KMP faux se trompe sur une seule ligne, la 3658. C'est pourquoi `anas` est le seul motif du banc qui révèle cette erreur.
+
+**Et le motif `ananas` ?** π = [0, 0, 1, 2, 3, 0]. Un retour par π n'y servirait qu'avec la suite « ananan », absente de tous nos textes (`grep -c ananan` donne 0 partout). L'occurrence « des ananas » se lit donc d'une traite, sans aucun retour.
 
 ```bash
-java -cp bin:bin-bench TraceKmp ananas data/candide-4650.txt data/tour-du-monde-800.txt
-java -cp bin:bin-bench TraceKmp anas   data/candide-4650.txt data/tour-du-monde-800.txt
-echo x | java -jar egrep-clone.jar --debug ananas        # table π
-command grep -c ananan data/*.txt                         # 0 partout
+java -cp bin:bin-bench TraceKmp anas data/candide-4650.txt   # π, CarryOver, trace de la ligne 3658
+java -cp bin:bin-bench TraceKmp mami                         # même table que anas
+java -cp bin:bin-bench TraceKmp ananas data/candide-4650.txt data/tour-du-monde-800.txt   # 0 retour utile
+echo x | java -jar egrep-clone.jar --debug anas              # table π
+command grep -c ananan data/*.txt                            # 0 partout
 ```

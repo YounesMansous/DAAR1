@@ -10,9 +10,10 @@ import kmp.Kmp;
 
 /**
  * Trace de KMP pour les exemples du rapport. Affiche la fonction
- * d'échec π calculée par {@link Kmp}, la table CarryOver sous deux
- * formes (CarryOver[0] = -1 et CarryOver[i] = π[i-1], puis la version
- * optimisée), et, pour chaque fichier donné, les retours
+ * d'échec π calculée par {@link Kmp}, la table CarryOver sous la forme
+ * du cours (m + 1 cases : CarryOver[0] = -1 ; pour 1 ≤ i ≤ m,
+ * f = π[i-1], et CarryOver[i] = CarryOver[f] si i &lt; m et
+ * P[f] = P[i], sinon f), et, pour chaque fichier donné, les retours
  * q = π[q-1] faits par la recherche.
  *
  * <p>Un retour est dit utile quand il mène à un q' &gt; 0 et que le
@@ -70,31 +71,25 @@ public class TraceKmp {
         char[] p = motif.toCharArray();
         int m = p.length;
 
-        int[] carry = new int[m];
+        // Forme du cours, de gauche à droite : carry[f] est déjà
+        // calculé quand on traite i, puisque f < i
+        int[] carry = new int[m + 1];
         carry[0] = -1;
-        for (int i = 1; i < m; i++) {
-            carry[i] = pi[i - 1];
-        }
-
-        // Version optimisée, de gauche à droite : carry[carry[i]] est
-        // déjà optimisé quand on traite i
-        int[] optimise = carry.clone();
-        for (int i = 1; i < m; i++) {
-            if (optimise[i] >= 0 && p[i] == p[optimise[i]]) {
-                optimise[i] = optimise[optimise[i]];
-            }
+        for (int i = 1; i <= m; i++) {
+            int f = pi[i - 1];
+            carry[i] = i < m && p[f] == p[i] ? carry[f] : f;
         }
 
         System.out.println("Motif : " + motif + " (m = " + m + ")");
         System.out.println();
-        System.out.println("| i | " + colonnes(m, i -> String.valueOf(i)));
-        System.out.println("|---|" + "---|".repeat(m));
-        System.out.println("| P[i] | " + colonnes(m, i -> String.valueOf(p[i])));
-        System.out.println("| π[i] | " + colonnes(m, i -> String.valueOf(pi[i])));
-        System.out.println("| CarryOver[i] (π décalée) | "
-            + colonnes(m, i -> String.valueOf(carry[i])));
-        System.out.println("| CarryOver[i] optimisée | "
-            + colonnes(m, i -> String.valueOf(optimise[i])));
+        System.out.println("| i | " + colonnes(m + 1, i -> String.valueOf(i)));
+        System.out.println("|---|" + "---|".repeat(m + 1));
+        System.out.println("| P[i] | " + colonnes(m + 1,
+            i -> i < m ? String.valueOf(p[i]) : "—"));
+        System.out.println("| π[i] | " + colonnes(m + 1,
+            i -> i < m ? String.valueOf(pi[i]) : "—"));
+        System.out.println("| CarryOver[i] | "
+            + colonnes(m + 1, i -> String.valueOf(carry[i])));
         System.out.println();
 
         for (int a = 1; a < args.length; a++) {

@@ -1,0 +1,101 @@
+% Section 5 : Tests
+% Chiffres et sources : resultats/chiffres_rapport.md (fin du fichier)
+
+\section{Tests}
+\label{sec:tests}
+
+Notre objectif est simple : afficher exactement les mêmes lignes que
+\texttt{grep -E}. Nous avons donc comparé notre programme à
+\texttt{grep}, sur de vrais livres et sur des regex choisies pour piéger
+chaque partie du code.
+
+\paragraph{Les textes.}
+Ce sont neuf livres du projet Gutenberg, en UTF-8 (tableau~\ref{tab:textes}).
+Le script \texttt{tests/telecharger\_textes.sh} télécharge les sept
+premiers ; \texttt{text1.txt} et \texttt{text2.txt} étaient déjà dans
+\texttt{data/}. Le script retire les \texttt{\textbackslash r} : les
+fichiers Gutenberg sont souvent en fin de ligne Windows, et
+\texttt{grep} compterait le \texttt{\textbackslash r} comme un caractère
+de la ligne. Il vérifie aussi que chaque fichier est bien en UTF-8, et
+que l'ensemble reste sous 6~Mo (5\,333\,057 octets au total). Le livre
+56667 commence par un BOM UTF-8 (U+FEFF). Nous l'avons gardé : c'est un
+caractère ordinaire pour \texttt{grep} comme pour nous, et le banc le
+confirme.
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{|l|r|r|l|}
+\hline
+Titre, auteur & N\textsuperscript{o} Gutenberg & Taille (octets) & Langue \\
+\hline
+\emph{The Yellow Wallpaper}, C.~P.~Gilman & 1952 & 51\,344 & anglais \\
+\emph{Metamorphosis}, F.~Kafka & 5200 & 139\,673 & anglais \\
+\emph{Alice's Adventures in Wonderland}, L.~Carroll & 11 & 170\,549 & anglais \\
+\emph{Candide, ou l'optimisme}, Voltaire & 4650 & 230\,056 & français \\
+\emph{The Double Thirteen}, A.~Wynne (\texttt{text2.txt}) & 79867 & 433\,257 & anglais \\
+\emph{Le tour du monde en quatre-vingts jours}, J.~Verne & 800 & 452\,511 & français \\
+\emph{A History of Babylon}, L.~W.~King (exemple du sujet) & 56667 & 749\,807 & anglais \\
+\emph{Pride and Prejudice}, J.~Austen (\texttt{text1.txt}) & 1342 & 757\,471 & anglais \\
+\emph{Don Quixote}, M.~de Cervantes (trad.\ anglaise) & 996 & 2\,348\,389 & anglais \\
+\hline
+\end{tabular}
+\caption{Les neuf textes de \texttt{data/}.}
+\label{tab:textes}
+\end{table}
+
+\paragraph{Les 41 regex.}
+Le fichier \texttt{tests/regex.txt} les range par catégorie : 8 littéraux
+(courts, moyens, longs, et \texttt{anas}, qui a un bord), 5 alternatives
+simples ou imbriquées, 6 étoiles simples ou imbriquées, 7 regex avec le
+point (dont \texttt{.*} et \texttt{h.*e.*r}), 4 façons d'écrire le mot vide
+(la regex vide, \texttt{a|}, \texttt{()}, \texttt{(a|)b}), 7 motifs avec
+accents ou typographie (\texttt{é}, \texttt{déjà}, \texttt{Ça}, \texttt{’},
+\texttt{n’t}\ldots), 2 motifs sans résultat et les 2 motifs du sujet
+(\texttt{S(a|g|r)*on} et \texttt{(Merodach|Sargon).*wall}). Les caractères
+\texttt{+ ? [ ] \{ \} \^{} \$ \textbackslash} n'y figurent jamais : ce
+sont des opérateurs pour \texttt{grep -E}, mais de simples lettres pour
+notre analyseur, qui ne connaît que l'ERE simplifiée du sujet. Un écart
+sur ces caractères ne dirait rien de nos algorithmes.
+
+\paragraph{Le banc de vérification.}
+\texttt{tests/verifier.sh} lance chaque regex sur chaque texte dans cinq
+configurations : les options par défaut, le matcher naïf, le matcher une
+passe, KMP forcé (pour les 15 littéraux seulement) et l'option
+\texttt{-n} face à \texttt{grep -n -E}. Pour chaque cas, il compare
+octet par octet notre sortie standard à celle de \texttt{grep -E}, et
+compare aussi les codes de sortie. Cela fait $41 \times 9 = 369$ cas par
+configuration, et 135 pour KMP : 1\,611 comparaisons en tout,
+\textbf{0~écart}. Le banc tourne en 100~s environ et s'arrête avec le code~1
+au moindre écart.
+
+\paragraph{Tester le banc.}
+Un banc qui ne trouve jamais rien ne prouve rien. Nous l'avons donc
+lancé sur des versions volontairement fausses du code. Un KMP faux, qui
+repart de 0 après un échec au lieu de reprendre en $q = \pi[q-1]$,
+passait tous les tests tant qu'aucun motif du banc n'avait de bord.
+Nous avons alors ajouté \texttt{anas} : son préfixe \texttt{ana} a le
+bord \texttt{a}, et le KMP faux manque le mot \emph{ananas}, une ligne
+dans \emph{Candide} et une dans le livre de Verne. Avec deux erreurs à la
+fois (ce KMP faux et une table de transitions fausse), le banc trouve
+515~écarts dans les cinq configurations.
+
+\paragraph{Le francophone.}
+\emph{Candide} et le livre de Verne sont là pour les accents. Lancé sur
+une machine sans locale UTF-8, le banc donnait 146 faux écarts, sur des
+motifs comme \texttt{é} ou \texttt{’}. La cause n'était pas dans notre code : sans
+locale UTF-8, la JVM décode les arguments de la ligne de commande en
+ASCII, et le motif arrive abîmé (caractère U+FFFD) avant même notre
+analyseur. On ne peut plus changer ce décodage une fois la JVM lancée.
+La correction : le banc exporte une locale UTF-8 (\texttt{C.UTF-8}, sinon
+\texttt{en\_US.UTF-8}) pour \texttt{java} comme pour \texttt{grep}, et
+le programme affiche un avertissement sur la sortie d'erreur s'il
+détecte ce cas.
+
+\paragraph{Test unitaire de KMP.}
+\texttt{tests/TestKmp.java} compare notre KMP à \texttt{String.contains}
+sur 20\,012 cas : 12 cas choisis à la main (motifs à bord comme
+\texttt{aab} dans \texttt{aaab}, motif d'une lettre, motif plus long que
+la ligne, ligne vide\ldots) et 20\,000 couples (motif, ligne) tirés au
+hasard sur l'alphabet $\{a, b\}$, avec une graine fixe pour que chaque
+lancement teste les mêmes cas. Tous réussissent.

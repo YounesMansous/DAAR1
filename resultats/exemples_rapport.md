@@ -27,7 +27,7 @@ Aucun autre mot (`Graeger`, `Grager`…) n'apparaît. L'étoile `(e|a)*` n'est d
 
 L'alphabet de l'AFD est `[AUTRE, G, a, e, g, r]`. Le symbole AUTRE est présent parce que la regex contient un point. L'AFD minimal de R est la chaîne attendue : G, r, une boucle sur {a, e}, g, puis une transition du point sur les six symboles (`AUTRE, G, a, e, g, r`), et r. La minimisation de Moore fusionne en un seul état, avec une boucle sur {a, e}, les trois états de l'AFD atteints après `Gr`, après `Gr…a` et après `Gr…e` (q2, q3 et q4 dans `--debug`) : ils ont les mêmes transitions et aucun n'est final. On passe ainsi de 8 à 6 états. L'AFD minimal de `.*R` a 2 états de plus, qui gardent la trace d'un début possible d'occurrence pendant la lecture (comme les états de KMP).
 
-**Figures** : `rapport/figures/filrouge_afn.dot` et `rapport/figures/filrouge_afd_min.dot`. Les états y sont numérotés comme dans `--debug`. Graphviz n'est pas installé sur la machine : il n'y a pas de PDF. Pour les produire : `dot -Tpdf rapport/figures/filrouge_afn.dot -o rapport/figures/filrouge_afn.pdf` (de même pour `_afd_min`).
+**Figures** : `rapport/figures/filrouge_afn.dot` et `rapport/figures/filrouge_afd_min.dot`. Les états y sont numérotés dans l'ordre de lecture (q0 initial, états finaux en dernier, sans titre), différemment de `--debug` : l'AFD minimal va de q0 à q5 (final), l'AFN-ε de q0 à q17 (final). Graphviz n'est pas installé sur la machine : il n'y a pas de PDF. Pour les produire : `dot -Tpdf rapport/figures/filrouge_afn.dot -o rapport/figures/filrouge_afn.pdf` (de même pour `_afd_min`).
 
 ```bash
 F=data/metamorphosis-5200.txt; R='Gr(e|a)*g.r'

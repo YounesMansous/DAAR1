@@ -31,22 +31,28 @@ et aussi la médiane quand l'écart-type est grand.
 On cherche les lignes où apparaît un personnage : le motif est un mot
 sans opérateur.
 \begin{verbatim}
-java -jar egrep-clone.jar --stats -c Passepartout \
-    data/tour-du-monde-800.txt
+F=data/tour-du-monde-800.txt
+java -jar egrep-clone.jar --stats -c Passepartout $F
 \end{verbatim}
 Notre programme reconnaît un littéral et choisit KMP : pas d'AFN-$\varepsilon$,
 pas de construction des sous-ensembles, seulement la fonction d'échec
 $\pi$. Il trouve 423 lignes, comme \texttt{grep}.
 
-Sur \emph{Don Quixote} en mémoire (figure~\ref{fig:kmp}), KMP cherche
-en 3,305~$\pm$~0,039~ms (\texttt{III}) à 5,752~$\pm$~0,106~ms (littéral de
-70 caractères), contre 7,147~$\pm$~0,361~ms (\texttt{t’s n}) à
-9,489~$\pm$~1,622~ms (\texttt{ire of m}) pour l'automate avec le matcher
-une passe. L'écart est surtout dans la construction : pour le littéral de
-70 caractères, la fonction d'échec prend 0,032~$\pm$~0,009~ms, l'automate
-10,490~$\pm$~1,969~ms (AFN-$\varepsilon$ de 140 états, AFD de 71 états).
-Sur 32~Mio, \texttt{together} prend 79,6~$\pm$~5,3~ms avec KMP et
-104,7~$\pm$~1,0~ms avec le matcher une passe.
+Sur \emph{Don Quixote} en mémoire (figure~\ref{fig:kmp}), les 8
+littéraux donnent :
+\begin{itemize}
+\item recherche avec KMP : de 3,305~$\pm$~0,039~ms (\texttt{III})
+  à 5,752~$\pm$~0,106~ms (littéral de 70 caractères) ;
+\item recherche avec l'automate et le matcher une passe :
+  de 7,147~$\pm$~0,361~ms (\texttt{t’s n})
+  à 9,489~$\pm$~1,622~ms (\texttt{ire of m}).
+\end{itemize}
+L'écart est surtout dans la construction. Pour le littéral de
+70 caractères, la fonction d'échec prend 0,032~$\pm$~0,009~ms et
+l'automate 10,490~$\pm$~1,969~ms. Cet automate est gros :
+AFN-$\varepsilon$ de R : 140 états ; AFD minimal de \texttt{.*R} :
+71 états. Sur 32~Mio, \texttt{together} prend 79,6~$\pm$~5,3~ms avec
+KMP et 104,7~$\pm$~1,0~ms avec le matcher une passe.
 
 \begin{figure}[htbp]
 \centering
@@ -220,7 +226,7 @@ décide peu. De bout en bout (figure~\ref{fig:bout}), \texttt{grep} est
 5 à 75 fois plus rapide que nous. Les deux extrêmes :
 \texttt{a.c} sur le fichier de 32~Mio (415,7~$\pm$~21,2~ms contre
 80,2~$\pm$~1,5~ms, soit 5,2) et \texttt{S(a|g|r)*on} sur \emph{The Yellow
-Wallpaper} (99,7~$\pm$~24,5~ms contre 1,3~$\pm$~0,0~ms, soit 75). Le
+Wallpaper} (99,7~$\pm$~24,5~ms contre 1,32~$\pm$~0,02~ms, soit 75). Le
 démarrage de la JVM pèse lourd : sur un fichier vide, avec \texttt{zzzq},
 notre programme met 58,5~$\pm$~5,0~ms et \texttt{grep} 1,4~$\pm$~0,2~ms.
 Sur 32~Mio, nos temps varient peu selon la regex, de

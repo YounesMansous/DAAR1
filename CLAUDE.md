@@ -152,7 +152,7 @@ En cas de changement de l'interface, tester aussi : les codes de sortie (0, 1 et
 3. `graphiques.py` : 7 PNG en noir et blanc dans `rapport/figures/`, et les chiffres clés sur stdout.
 
 Outils hors de `ant bench`, compilés avec lui par `ant compile-bench` (tout `bench/*.java` va dans `bin-bench/`), lancés depuis la racine :
-- `ExportDot <regex> <préfixe>` : AFN-ε et AFD minimal en `.dot`, états numérotés comme `--debug`. Graphviz (`dot`) n'est pas installé sur cette machine : pas de PDF.
+- `ExportDot <regex> <préfixe>` : AFN-ε et AFD minimal en `.dot`, états numérotés dans l'ordre de lecture (q0 initial, états finaux en dernier, sans titre), différemment de `--debug`. Graphviz (`dot`) n'est pas installé sur cette machine : pas de PDF.
 - `TraceKmp <motif> [fichiers]` : π, CarryOver sous la forme du cours (m + 1 cases : CarryOver[0] = −1 ; pour 1 ≤ i ≤ m, f = π[i−1], CarryOver[i] = CarryOver[f] si i < m et P[f] = P[i], sinon f), décompte des retours q = π[q-1] et trace du premier retour utile.
 - `BenchUneLigne <naif|unepasse>` (une JVM par matcher) puis `python3 bench/graphique_une_ligne.py` : « livre sur une seule ligne » (The Yellow Wallpaper recollé en mémoire, rien n'est écrit dans `data/`), `resultats/bench_une_ligne.csv` et `rapport/figures/fig_une_ligne.png`. Arrêt d'une configuration si une itération dépasse 10 s.
 

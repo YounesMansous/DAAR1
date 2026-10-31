@@ -52,7 +52,11 @@ point (dont \texttt{.*} et \texttt{h.*e.*r}), 4 façons d'écrire le mot vide
 (la regex vide, \texttt{a|}, \texttt{()}, \texttt{(a|)b}), 7 motifs avec
 accents ou typographie (\texttt{é}, \texttt{déjà}, \texttt{Ça}, \texttt{’},
 \texttt{n’t}\ldots), 2 motifs sans résultat et les 2 motifs du sujet
-(\texttt{S(a|g|r)*on} et \texttt{(Merodach|Sargon).*wall}). Les caractères
+(\texttt{S(a|g|r)*on} et \texttt{(Merodach|Sargon).*wall}). Au total,
+15 de ces regex sont littérales, c'est-à-dire de simples suites de
+lettres : les 8 littéraux de la première catégorie, 5 motifs accentués
+(\texttt{é}, \texttt{déjà}, \texttt{Ça}, \texttt{’}, \texttt{n’t}) et les
+2 motifs sans résultat (\texttt{zzzq}, \texttt{Sargonzzz}). Les caractères
 \texttt{+ ? [ ] \{ \} \^{} \$ \textbackslash} n'y figurent jamais : ce
 sont des opérateurs pour \texttt{grep -E}, mais de simples lettres pour
 notre analyseur, qui ne connaît que l'ERE simplifiée du sujet. Un écart
@@ -61,7 +65,7 @@ sur ces caractères ne dirait rien de nos algorithmes.
 \paragraph{Le banc de vérification.}
 \texttt{tests/verifier.sh} lance chaque regex sur chaque texte dans cinq
 configurations : les options par défaut, le matcher naïf, le matcher une
-passe, KMP forcé (pour les 15 littéraux seulement) et l'option
+passe, KMP forcé (pour les 15 regex littérales seulement) et l'option
 \texttt{-n} face à \texttt{grep -n -E}. Pour chaque cas, il compare
 octet par octet notre sortie standard à celle de \texttt{grep -E}, et
 compare aussi les codes de sortie. Cela fait $41 \times 9 = 369$ cas par

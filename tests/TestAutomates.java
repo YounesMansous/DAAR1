@@ -3,6 +3,7 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import ast.interfaces.AstI;
 import automate.ConstructionAutomate;
@@ -13,6 +14,7 @@ import parser.Parser;
 
 public class TestAutomates {
 
+    // pour chaque regex, compte les etats des automates et verifie que naif et une passe trouve les memes lignes
     public static void main(String[] args) throws Exception {
 
         int erreurs = 0;
@@ -39,7 +41,7 @@ public class TestAutomates {
 
             for (Path fich : fichiers
                     .filter(p -> p.toString().endsWith(".txt"))
-                    .sorted().toList()) {
+                    .sorted().collect(Collectors.toList())) {
 
                 lignes.addAll(Files.readAllLines(fich, StandardCharsets.UTF_8));
             }

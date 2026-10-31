@@ -3,6 +3,7 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import ast.interfaces.AstI;
 import automate.ConstructionAutomate;
@@ -57,6 +58,7 @@ public class TestPerformance {
             trouves, construction, moy, ecart);
     }
 
+    // mesure le temps du naif, de l'une passe et de KMP (motifs literaux) pour chaque regex et chaque texte de data, sans compter la lecture
     public static void main(String[] args) throws Exception {
 
         List<String> regexs = new ArrayList<>();
@@ -80,7 +82,7 @@ public class TestPerformance {
             fichiers = stream
                 .filter(p -> p.toString().endsWith(".txt"))
                 .sorted()
-                .toList();
+                .collect(Collectors.toList());
         }
 
         try (PrintStream out = SortieTest.ouvrir("performance")) {
@@ -111,30 +113,30 @@ public class TestPerformance {
                         long deb = System.nanoTime();
                         ConstructionAutomate cons = new ConstructionAutomate(ast);
                         Matcher naif = new MatcherNaif(cons.getAfdMinimal());
-                        double consNaif = (System.nanoTime() - deb) / 1_000_000.0;
+                        double tNaif = (System.nanoTime() - deb) / 1_000_000.0;
 
                         deb = System.nanoTime();
                         AstI astU = MatcherUnePasse.envelopper(ast);
                         ConstructionAutomate consU = new ConstructionAutomate(astU);
                         Matcher uneP = new MatcherUnePasse(consU.getAfdMinimal());
-                        double consUneP = (System.nanoTime() - deb) / 1_000_000.0;
+                        double tUneP = (System.nanoTime() - deb) / 1_000_000.0;
 
                         String lit = Kmp.motifLitteral(ast);
 
                         if (lit != null) {
                             deb = System.nanoTime();
                             Matcher kmp = new Kmp(lit);
-                            double consKmp = (System.nanoTime() - deb) / 1_000_000.0;
+                            double tKmp = (System.nanoTime() - deb) / 1_000_000.0;
 
                             mesurerPlusieurs(out, fich.getFileName().toString(),
-                                regex, "KMP", kmp, lignes, taille, consKmp);
+                                regex, "KMP", kmp, lignes, taille, tKmp);
                         }
 
                         mesurerPlusieurs(out, fich.getFileName().toString(),
-                            regex, "naif", naif, lignes, taille, consNaif);
+                            regex, "naif", naif, lignes, taille, tNaif);
 
                         mesurerPlusieurs(out, fich.getFileName().toString(),
-                            regex, "unePasse", uneP, lignes, taille, consUneP);
+                            regex, "unePasse", uneP, lignes, taille, tUneP);
 
                     } catch (Exception e) {
                         out.println("ERREUR\t" + fich.getFileName()

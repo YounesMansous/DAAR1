@@ -3,6 +3,7 @@ package ast;
 import ast.interfaces.AstI;
 import ast.interfaces.AstVisitor;
 
+// deux morceaux de regex a la suite : dabord le fils gauche, puis le fils droit
 public class AstConcat implements AstI{
 
     private AstI filsDroit;

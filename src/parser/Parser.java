@@ -3,46 +3,16 @@ package parser;
 import ast.AstFactory;
 import ast.interfaces.AstI;
 
-/**
- * Première étape du pipeline : analyseur syntaxique par descente
- * récursive d'une ERE simplifiée (parenthèses, alternative |,
- * concaténation, étoile *, point ., lettres). Produit l'AST de la
- * regex, que {@code automate.ConstructionAutomate} transforme en
- * automate.
- *
- * <p>Grammaire, de la priorité la plus faible à la plus forte :</p>
- * <pre>
- *   expression ::= concat ('|' concat)*
- *   concat     ::= repeat+ | (vide)
- *   repeat     ::= atome '*'*
- *   atome      ::= '(' expression ')' | '.' | lettre
- * </pre>
- *
- * <p>Tout autre caractère, y compris {@code + ? [ ] { } ^ $ \}, est
- * une lettre. Chaque caractère est lu une fois, sans retour
- * arrière : l'analyse est en O(|R|).</p>
- */
+// transforme la regex en AST par descente recursive, en lisant chaque caractere une seule fois
 public class Parser {
 
     private String re;
     private int position = 0;
 
-    /**
-     * Prépare l'analyse d'une regex.
-     *
-     * @param re la regex à analyser
-     */
     public Parser(String re){
         this.re = re;
     }
 
-    /**
-     * Analyse toute la regex.
-     *
-     * @return la racine de l'AST
-     * @throws RuntimeException si la regex est invalide (parenthèse
-     *         non fermée ou fermante en trop, * ou | mal placé)
-     */
     public AstI parse() {
         AstI ast = parseExpression();
 

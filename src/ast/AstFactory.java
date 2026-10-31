@@ -3,6 +3,7 @@ package ast;
 import ast.interfaces.AstFactoryI;
 import ast.interfaces.AstI;
 
+// regroupe la creation des noeuds de l'arbre, utiliser par le parser et par MatcherUnePasse
 public class AstFactory implements AstFactoryI{
 
     private AstFactory() {

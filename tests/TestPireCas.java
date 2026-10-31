@@ -17,6 +17,8 @@ public class TestPireCas {
 
         long deb = System.nanoTime();
 
+        m.contientMotif(ligne);
+
         return (System.nanoTime() - deb) / 1_000_000.0;
     }
 
@@ -42,6 +44,7 @@ public class TestPireCas {
         return new double[] {moy, ecart};
     }
 
+    // mesure naif et une passe sur une ligne de a de plus en plus longue (le naif seulement jusqu'a 20000)
     public static void main(String[] args) throws Exception {
 
         List<String> regexs = new ArrayList<>();
@@ -89,25 +92,26 @@ public class TestPireCas {
 
                         String ligne = "a".repeat(n);
 
-                        boolean b1 = naif.contientMotif(ligne);
+                        Boolean b1 = null;
                         boolean b2 = uneP.contientMotif(ligne);
 
                         double[] t1 = null;
 
                         // ne pas lancer le naif sur les tres grandes tailles
                         if (n <= 20000) {
+                            b1 = naif.contientMotif(ligne);
                             t1 = mesurerPlusieurs(naif, ligne);
                         }
 
                         double[] t2 = mesurerPlusieurs(uneP, ligne);
 
                         out.printf(Locale.ROOT,
-                            "%s\t%d\t%s\t%s\t%.4f\t%.4f\t%b\t%b%n",
+                            "%s\t%d\t%s\t%s\t%.4f\t%.4f\t%s\t%b%n",
                             regex, n,
                             t1 == null ? "NA" : String.format(Locale.ROOT, "%.4f", t1[0]),
                             t1 == null ? "NA" : String.format(Locale.ROOT, "%.4f", t1[1]),
                             t2[0], t2[1],
-                            b1, b2
+                            b1 == null ? "NA" : b1, b2
                         );
 
                         System.out.println("Terminé : " + regex + " / " + n);

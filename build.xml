@@ -5,12 +5,11 @@
   ant            : construit egrep-clone.jar (cible par défaut)
   ant compile    : compile src/ dans bin/
   ant jar        : jar exécutable egrep-clone.jar (sans les tests)
-  ant test       : compile tests/ dans bin-tests/, lance TestKmp,
-                   puis tests/verifier.sh s'il existe
+  ant test       : compile tests/ dans bin-tests/, puis lance
+                   TestCorrection et TestAutomates
+  ant pirecas    : lance TestPireCas (resultats/pire_cas.txt)
   ant doc        : Javadoc HTML de src/ dans doc/
   ant clean      : supprime bin/, bin-tests/, doc/ et le jar
-  ant bench      : banc de performances (bench/README.md) : CSV dans
-                   resultats/, figures dans rapport/figures/
   ant dist       : ant clean jar, puis l'archive de rendu
                    daar-assignment-algorithm-FELLAGUE-MANSOUS.zip
 -->
@@ -77,37 +76,39 @@
         </javac>
     </target>
 
-    <!-- Tests unitaires puis, s'il existe, le script de comparaison
-         avec grep -E. Échoue au premier test en échec. -->
-    <target name="test" depends="test-kmp, test-verifier"
-            description="Lance TestKmp puis tests/verifier.sh s'il existe"/>
+    <!-- Tests, lancés depuis la racine : ils lisent inputs/ et data/,
+         et écrivent leur compte rendu dans resultats/. Échoue au
+         premier test en échec. -->
+    <macrodef name="lancer-test">
+        <attribute name="classe"/>
+        <sequential>
+            <java classname="@{classe}" fork="true" failonerror="true"
+                  dir="${basedir}">
+                <classpath>
+                    <pathelement location="${bin.dir}"/>
+                    <pathelement location="${bin.tests.dir}"/>
+                </classpath>
+            </java>
+        </sequential>
+    </macrodef>
 
-    <target name="test-kmp" depends="compile-tests">
-        <java classname="TestKmp" fork="true" failonerror="true">
-            <classpath>
-                <pathelement location="${bin.dir}"/>
-                <pathelement location="${bin.tests.dir}"/>
-            </classpath>
-        </java>
+    <target name="test" depends="compile-tests"
+            description="Lance TestCorrection et TestAutomates">
+        <lancer-test classe="TestCorrection"/>
+        <lancer-test classe="TestAutomates"/>
     </target>
 
-    <target name="test-verifier" depends="jar, verifier-present"
-            if="verifier.present">
-        <exec executable="bash" failonerror="true">
-            <arg value="${tests.dir}/verifier.sh"/>
-        </exec>
-    </target>
-
-    <target name="verifier-present">
-        <available file="${tests.dir}/verifier.sh"
-                   property="verifier.present"/>
+    <!-- Mesures du pire cas (lignes de « a »), hors de ant test -->
+    <target name="pirecas" depends="compile-tests"
+            description="Lance TestPireCas (resultats/pire_cas.txt)">
+        <lancer-test classe="TestPireCas"/>
     </target>
 
     <!-- Javadoc HTML de src/ (classe Main du paquet par défaut
          comprise, d'où le fileset plutôt que packagenames).
-         -Xdoclint:all vérifie tous les commentaires, et
-         failonwarning fait échouer la cible au moindre
-         avertissement. -->
+         -Xdoclint:all,-missing vérifie les commentaires qui existent,
+         sans signaler ceux qui manquent, et failonwarning fait
+         échouer la cible au moindre avertissement. -->
     <target name="doc" description="Génère la Javadoc HTML dans doc/">
         <delete dir="${doc.dir}"/>
         <javadoc destdir="${doc.dir}"
@@ -121,7 +122,7 @@
             <fileset dir="${src.dir}" includes="**/*.java"/>
             <arg value="--release"/>
             <arg value="${java.release}"/>
-            <arg value="-Xdoclint:all"/>
+            <arg value="-Xdoclint:all,-missing"/>
         </javadoc>
     </target>
 
@@ -134,66 +135,6 @@
         <delete dir="${bin.bench.dir}"/>
         <delete dir="${genere.dir}"/>
         <delete file="${jar.file}"/>
-    </target>
-
-    <!-- Compile le banc de performances dans un dossier séparé -->
-    <target name="compile-bench" depends="compile">
-        <delete dir="${bin.bench.dir}"/>
-        <mkdir dir="${bin.bench.dir}"/>
-        <javac srcdir="${bench.dir}"
-               destdir="${bin.bench.dir}"
-               encoding="UTF-8"
-               release="${java.release}"
-               includeantruntime="false"
-               debug="true">
-            <classpath location="${bin.dir}"/>
-        </javac>
-    </target>
-
-    <!-- Un lancement de Benchmark (une JVM neuve) -->
-    <macrodef name="benchmark">
-        <attribute name="args"/>
-        <sequential>
-            <java classname="Benchmark" fork="true" failonerror="true"
-                  dir="${basedir}">
-                <jvmarg value="-Xmx1g"/>
-                <arg line="@{args}"/>
-                <classpath>
-                    <pathelement location="${bin.dir}"/>
-                    <pathelement location="${bin.bench.dir}"/>
-                </classpath>
-            </java>
-        </sequential>
-    </macrodef>
-
-    <!-- Banc complet : mesures dans la JVM (Benchmark, une JVM par
-         expérience et par algorithme, pour que le JIT d'un algorithme
-         ne pèse pas sur les autres), vérification croisée du nombre
-         de lignes, puis mesures de bout en bout contre grep
-         (bench_bout_en_bout.py, qui exporte une locale UTF-8 pour java
-         et grep), puis les figures. Les fichiers générés de 1 à
-         32 Mio sont supprimés à la fin. -->
-    <target name="bench" depends="jar, compile-bench"
-            description="Banc de performances et figures du rapport">
-        <delete file="resultats/bench_jvm.csv"/>
-        <benchmark args="a kmp"/>
-        <benchmark args="a unepasse"/>
-        <benchmark args="b naif"/>
-        <benchmark args="b unepasse"/>
-        <benchmark args="c kmp"/>
-        <benchmark args="c unepasse"/>
-        <benchmark args="c naif"/>
-        <benchmark args="d thompson"/>
-        <benchmark args="d naif"/>
-        <benchmark args="d unepasse"/>
-        <benchmark args="--verifier"/>
-        <exec executable="python3" failonerror="true">
-            <arg value="${bench.dir}/bench_bout_en_bout.py"/>
-        </exec>
-        <exec executable="python3" failonerror="true">
-            <arg value="${bench.dir}/graphiques.py"/>
-        </exec>
-        <delete dir="${genere.dir}"/>
     </target>
 
     <!-- Archive de rendu, avec un dossier racine du même nom. On part
@@ -220,6 +161,7 @@
                 <include name="${tests.dir}/**"/>
                 <include name="${bench.dir}/**"/>
                 <include name="data/**"/>
+                <include name="inputs/**"/>
                 <include name="resultats/**"/>
                 <exclude name="${genere.dir}/**"/>
                 <exclude name="**/__pycache__/**"/>

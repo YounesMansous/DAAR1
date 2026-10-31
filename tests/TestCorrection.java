@@ -3,6 +3,7 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.regex.Pattern;
 
 import ast.interfaces.AstI;
@@ -17,7 +18,7 @@ public class TestCorrection {
 
     private static long total = 0;
     private static long erreurs = 0;
-    private static int erreursExec = 0;
+    private static int errExec = 0;
     private static int nbRegex = 0;
 
     private static void tester(PrintStream out, String regex, String fich,
@@ -81,6 +82,7 @@ public class TestCorrection {
             regex, fich.getFileName(), lignes.size(), diff);
     }
 
+    // compare naif, une passe et KMP a java.util.regex sur chaque ligne de data, pour chaque regex de inputs
     public static void main(String[] args) throws Exception {
 
         List<String> regexs = new ArrayList<>();
@@ -105,7 +107,7 @@ public class TestCorrection {
             fichiers = stream
                 .filter(p -> p.toString().endsWith(".txt"))
                 .sorted()
-                .toList();
+                .collect(Collectors.toList());
         }
 
         try (PrintStream out = SortieTest.ouvrir("correction")) {
@@ -124,7 +126,7 @@ public class TestCorrection {
                         verifier(out, regex, fich);
                     }
                     catch (Exception e) {
-                        erreursExec++;
+                        errExec++;
 
                         out.printf("ERREUR | regex=%s | fichier=%s | %s%n",
                             regex, fich.getFileName(), e.getMessage());
@@ -138,7 +140,7 @@ public class TestCorrection {
             out.println("Comparaisons : " + total);
             out.println("Reussis : " + (total - erreurs));
             out.println("Comparaisons echouees : " + erreurs);
-            out.println("Erreurs d'execution : " + erreursExec);
+            out.println("Erreurs d'execution : " + errExec);
         }
 
         System.out.println("TestCorrection terminé");
@@ -146,12 +148,12 @@ public class TestCorrection {
         System.out.println("Fichiers : " + fichiers.size());
         System.out.println("Comparaisons : " + total);
         System.out.println("Erreurs : " + erreurs);
-        System.out.println("Erreurs d'execution : " + erreursExec);
+        System.out.println("Erreurs d'execution : " + errExec);
 
-        if (erreurs != 0 || erreursExec != 0) {
+        if (erreurs != 0 || errExec != 0) {
             throw new AssertionError(
                 "Tests échoués : " + erreurs
-                + " comparaisons et " + erreursExec + " erreurs d'execution"
+                + " comparaisons et " + errExec + " erreurs d'execution"
             );
         }
     }

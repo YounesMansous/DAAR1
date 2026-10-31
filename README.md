@@ -1,100 +1,68 @@
 # egrep-clone
 
-Clone de la commande `egrep` en Java (projet 1 de l'UE DAAR). Il accepte l'ERE simplifiée du sujet : parenthèses, alternative `|`, concaténation, étoile `*`, point `.` et lettres. Pour un motif et un fichier donnés, il affiche **exactement les mêmes lignes que `grep -E`**, ce que vérifie un banc de 1 611 comparaisons. La recherche passe par un automate (AFN-ε, AFD, puis AFD minimal), ou par KMP quand le motif est un simple mot.
+Notre projet 1 de DAAR : une version Java de `egrep`. On donne une regex et un fichier, et le programme affiche les lignes qui la contiennent, comme `grep -E`.
 
-## Prérequis
+On gère l'ERE simplifiée du sujet : `( )`, `|`, concaténation, `*`, `.` et lettres.
 
-- Java 11 ou plus (le jar est compilé en `--release 11`) ;
-- Apache Ant (ou `make`, qui appelle Ant) ;
-- une locale UTF-8 (`LC_ALL=C.UTF-8` sous Linux, `en_US.UTF-8` sous macOS) : sans elle, Java abîme les caractères non ASCII du motif ;
-- Python 3 et matplotlib : seulement pour le banc de performances (`ant bench`).
+La recherche passe par un automate (AFN-ε, AFD, puis AFD minimal). Si la regex est un simple mot, on utilise KMP.
 
-## Compilation
+## Compiler et lancer
 
-```bash
-ant jar          # ou : make     → egrep-clone.jar à la racine
-ant clean        # supprime bin/, bin-tests/, bin-bench/, doc/ et le jar
-ant doc          # Javadoc HTML dans doc/
-ant bench        # banc de performances (environ 4 minutes)
-```
-
-Sans Ant :
+Il faut Java 11 ou plus, Ant (ou `make`) et une locale UTF-8 (`LC_ALL=C.UTF-8`), sinon les accents de la regex sont mal lus.
 
 ```bash
-javac --release 11 -encoding UTF-8 -d bin $(find src -name '*.java')
-java -cp bin Main 'S(a|g|r)*on' data/babylon-56667.txt
+ant jar          # ou make : crée egrep-clone.jar
+java -jar egrep-clone.jar "regex" [fichier] [auto|kmp|unepasse|naif]
 ```
 
-## Utilisation
+- Sans fichier, on lit `data/text1.txt`.
+
+- `auto` (par défaut) prend KMP pour un simple mot, sinon l'automate une passe. `naif` relance l'automate depuis chaque position de la ligne.
+
+- Sans argument, le programme demande la regex, le fichier et l'algorithme.
+
+- Seules les lignes trouvées vont sur la sortie standard ; l'algorithme et le nombre de lignes vont sur la sortie d'erreur.
+
+Exemple du sujet (30 lignes, comme grep) :
 
 ```bash
-java -jar egrep-clone.jar [options] "regex" [fichier]   # sans fichier, ou avec - : entrée standard
+java -jar egrep-clone.jar 'S(a|g|r)*on' data/text8.txt
 ```
-
-Syntaxe : `( )`, `|`, `*`, `.` (n'importe quel caractère), et tout autre caractère est une lettre. `+ ? [ ] { } ^ $ \` ne sont pas des opérateurs ici. Le motif vide, `a|` et `()` sont acceptés, comme par grep.
-
-Exemple du sujet (30 lignes, comme `grep -E`) :
-
-```bash
-java -jar egrep-clone.jar 'S(a|g|r)*on' data/babylon-56667.txt
-```
-
-| Option | Effet | Exemple |
-|---|---|---|
-| `-c` | nombre de lignes trouvées | `java -jar egrep-clone.jar -c Sargon data/babylon-56667.txt` → `29` |
-| `-n` | préfixe `numéro:` | `java -jar egrep-clone.jar -n Sargon data/babylon-56667.txt` → `432:    state--Sargon and…` |
-| `--algo=auto` | KMP si le motif est littéral, sinon automate (défaut) | `java -jar egrep-clone.jar --algo=auto Elizabeth data/text1.txt` |
-| `--algo=automate` | toujours l'automate | `java -jar egrep-clone.jar --algo=automate Elizabeth data/text1.txt` |
-| `--algo=kmp` | toujours KMP (motif littéral obligatoire, sinon code 2) | `java -jar egrep-clone.jar --algo=kmp Elizabeth data/text1.txt` |
-| `--matcher=unepasse` | automate de `.*R`, une seule lecture de la ligne (défaut) | `java -jar egrep-clone.jar --matcher=unepasse 'a.*b' data/text1.txt` |
-| `--matcher=naif` | automate de R, relancé depuis chaque position | `java -jar egrep-clone.jar --matcher=naif 'a.*b' data/text1.txt` |
-| `--stats` | algorithme, taille des automates, temps (sur stderr) | `java -jar egrep-clone.jar --stats 'S.*on' data/babylon-56667.txt > /dev/null` |
-| `--debug` | AST, AFN-ε, AFD, AFD minimal ou table KMP (sur stderr) | `java -jar egrep-clone.jar --debug 'ab*c' data/alice-11.txt > /dev/null` |
-| `--` | fin des options (motif qui commence par `-`) | `java -jar egrep-clone.jar -c -- '--' data/text1.txt` → `444` |
-
-Les options courtes se groupent (`-cn`). La sortie standard ne contient que le résultat, même avec `--debug` et `--stats`. Codes de sortie, comme grep : **0** au moins une ligne trouvée, **1** aucune, **2** erreur (regex invalide, fichier introuvable, texte non UTF-8, option inconnue).
 
 ## Tests
 
 ```bash
-ant test         # ou : make test
+ant test         # ou make test, depuis la racine
 ```
 
-Lance `TestKmp` (KMP comparé à `String.contains` sur 20 012 cas), puis `tests/verifier.sh`, qui compare octet par octet la sortie et le code de sortie du jar à ceux de `grep -E` : 41 regex × 9 textes de `data/`, dans 5 configurations (défaut, naïf, une passe, KMP, `-n`), soit 1 611 comparaisons. La cible échoue au moindre écart. Détails, locale et provenance des textes : [tests/README.md](tests/README.md).
+Les tests prennent les 34 regex de `inputs/` et les 14 textes de `data/` :
 
-## Benchmarks
+- `TestCorrection` compare le naïf, l'une passe et KMP à `java.util.regex`, ligne par ligne : 8 007 480 comparaisons, 0 erreur ;
 
-`ant bench` (environ 4 minutes) mesure les algorithmes de deux façons. D'abord dans la JVM, sur des lignes déjà en mémoire, sans le coût de lecture du fichier : KMP contre automate, naïf contre une passe (textes réels et pire cas), passage à l'échelle jusqu'à 32 Mio, taille et construction des automates. Puis de bout en bout, contre `grep -E`. Il écrit les mesures brutes dans `resultats/*.csv` et les figures du rapport dans `rapport/figures/*.png` (moyenne ± écart-type). Protocole et machine : [bench/README.md](bench/README.md).
+- `TestAutomates` compte les états des automates et vérifie que le naïf et l'une passe trouvent les mêmes lignes : 3 490 440 comparaisons, 0 différence.
 
-## Architecture
+Pour les temps : `ant pirecas` (environ 4 minutes) compare le naïf et l'une passe sur une longue ligne de « a », et `java -cp bin:bin-tests TestPerformance` mesure chaque algorithme sur les textes. Tous les résultats sont dans `resultats/`.
 
-```
-regex ─► Parser ─► AST ─► AFN-ε ─► AFD ─► AFD minimal ─► table ─► matcher (naïf ou une passe)
-                    └──── motif littéral ? ──────────────────────► KMP
-```
+## Organisation du code
 
-| Paquet (`src/`) | Rôle |
+| Dans `src/` | Rôle |
 |---|---|
-| `Main` | ligne de commande : options, choix de l'algorithme, affichage, codes de sortie |
-| `parser/` | descente récursive de la regex, produit l'AST |
-| `ast/` | nœuds de l'AST (lettre, point, mot vide, concaténation, alternative, étoile) et visiteur |
-| `automate/` | Thompson (AFN-ε), sous-ensembles (AFD), Moore et retrait du puits (AFD minimal), table `int[états][257]` |
-| `experimentation/` | matchers naïf (O(n²) par ligne) et une passe sur `.*R` (O(n)), lecture du texte ligne par ligne |
-| `kmp/` | Knuth-Morris-Pratt pour les motifs littéraux, en O(n + m) |
-| `affichage/` | affichage de l'AST, des automates et de la table KMP pour `--debug` |
+| `Main` | lit les arguments, choisit l'algorithme, affiche les lignes |
+| `parser/`, `ast/` | lisent la regex et construisent l'arbre |
+| `automate/` | AFN-ε, AFD, minimisation de Moore |
+| `experimentation/` | matchers naïf (O(n²)) et une passe (O(n)), lecture du fichier |
+| `kmp/` | KMP, en O(n + m) |
 
-Le point est géré dans l'automate lui-même : le symbole `AUTRE` représente tous les caractères absents de la regex, donc il n'y a jamais de retour arrière. La Javadoc (`ant doc`) détaille chaque étape et sa complexité.
+## Différences avec `grep -E`
 
-## Écarts connus avec `grep -E`
+- `)` sans `(` ou `*` au début : grep les prend pour des lettres, nous on affiche une erreur.
 
-Les quatre premiers sont hors de l'ERE simplifiée du sujet ; le dernier concerne le point :
+- `+ ? [ ] { } ^ $ \` sont des lettres pour nous, des opérateurs pour grep.
 
-- `)` sans parenthèse ouvrante, ou `*` en début de motif : grep les lit comme des lettres, nous les refusons (code 2) ;
-- `+ ? [ ] { } ^ $ \` sont des opérateurs pour grep, mais des lettres pour nous ;
-- texte non UTF-8 : nous le refusons (code 2), alors que grep affiche « binary file matches » ;
-- locale non UTF-8 : Java décode mal un motif non ASCII (`é`, `’`) ; le programme l'affiche en avertissement sur stderr. Lancez-le avec `LC_ALL=C.UTF-8` ;
-- caractère au-delà de U+FFFF (emoji…) : sur la ligne `a😀b`, grep trouve `a.b` et nous `a..b`. Java range un tel caractère dans deux `char`, et notre point lit un seul `char`.
-  La correction possible serait de lire la ligne par point de code (`codePointAt`). Aucun texte de `data/` ne contient un tel caractère.
+- Un fichier qui n'est pas en UTF-8 est refusé.
+
+- Avec un emoji (au-delà de U+FFFF), notre point lit un demi-caractère : sur `a😀b`, grep trouve `a.b` et nous `a..b`.
+  Aucun texte de `data/` n'en contient.
 
 ## Auteurs
 

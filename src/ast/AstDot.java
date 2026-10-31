@@ -3,6 +3,7 @@ package ast;
 import ast.interfaces.AstI;
 import ast.interfaces.AstVisitor;
 
+// le point : une feuille qui accepte n'importe quel caractere
 public class AstDot implements AstI{
 
     /** crée un noeud point */

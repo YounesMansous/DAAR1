@@ -3,7 +3,7 @@ package automate;
 
 import ast.interfaces.AstI;
 
-//cette classe regroupe les differentes etapes pour construire notre afd minimisé a partir de l'AST
+// enchaine AFN, AFD puis AFD minimal a partir de l'AST, et garde chaque etape
 public class ConstructionAutomate {
 
     private final Afn afn;

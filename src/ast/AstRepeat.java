@@ -3,6 +3,7 @@ package ast;
 import ast.interfaces.AstI;
 import ast.interfaces.AstVisitor;
 
+// l'etoile * : son seul fils (rendu comme fils gauche) peut etre repeter 0, 1 ou plusieurs fois
 public class AstRepeat implements AstI{
 
     private AstI fils;

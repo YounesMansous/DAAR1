@@ -11,17 +11,20 @@ public class FileSearcher {
         this.matcher = matcher;
     }
 
-    public ResultatRecherche rechercher(BufferedReader lecteur)
+    // on lit le texte ligne par ligne et on garde celles qui contienent le motif
+    public ResultatRecherche rechercher(BufferedReader lect)
             throws IOException {
 
-        ResultatRecherche resultat = new ResultatRecherche();
+        ResultatRecherche res = new ResultatRecherche();
 
         String ligne;
 
-        while ((ligne = lecteur.readLine()) != null) {
-            resultat.ajouterLigneLue(ligne, matcher.contientMotif(ligne));
+        // readLine enleve deja le retour a la ligne, donc le matcher voit la ligne sans son \n
+        
+        while ((ligne = lect.readLine()) != null) {
+            res.ajouterLigneLue(ligne, matcher.contientMotif(ligne));
         }
 
-        return resultat;
+        return res;
     }
 }

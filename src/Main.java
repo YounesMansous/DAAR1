@@ -23,6 +23,8 @@ public class Main {
         String fich = "data/text1.txt";
         String algo = "auto";
 
+        // sans argument on passe en mode interactif : on demande la regex,
+        // le fichier puis l'algo
         if (args.length == 0) {
             Scanner sc = new Scanner(System.in);
 
@@ -32,6 +34,7 @@ public class Main {
             System.out.print("Fichier (Entrée pour text1.txt) : ");
             String saisie = sc.nextLine();
 
+            // Si l"utilisateur appuie juste sur Entree on garde data/text1.txt
             if (!saisie.isBlank()) {
                 fich = saisie;
             }
@@ -46,6 +49,7 @@ public class Main {
 
             String choix = sc.nextLine();
 
+            // on convertit le numero choisi en nom d'algo, et on prend auto si le choix n'est pas reconu
             switch (choix) {
                 case "2": algo = "kmp"; break;
                 case "3": algo = "unepasse"; break;
@@ -54,6 +58,7 @@ public class Main {
             }
         }
         else {
+            // sinon on lit les arguments : la regex, puis le fichier et l'algo s'ils sont donnes
             regex = args[0];
 
             if (args.length > 1) {
@@ -69,63 +74,70 @@ public class Main {
             String motif = Kmp.motifLitteral(ast);
 
             Matcher matcher;
-            String algoUtilise;
+            String nomAlgo;
 
+            // en auto on prend KMP si le motif est une simple suite de lettre, sinon l'automate une passe
             if (algo.equals("auto")) {
                 algo = motif != null ? "kmp" : "unepasse";
             }
 
             if (algo.equals("kmp")) {
 
+                // KMP ne sait pas gerer | * . et le mot vide, donc on s'arrete avec un message
                 if (motif == null) {
-                    System.out.println("KMP ne fonctionne qu'avec un motif litteral.");
+                    System.err.println("KMP ne fonctionne qu'avec un motif litteral.");
                     return;
                 }
 
                 matcher = new Kmp(motif);
-                algoUtilise = "KMP";
+                nomAlgo = "KMP";
             }
             else if (algo.equals("unepasse") || algo.equals("naif")) {
 
+                // pour l'une passe on construit l'automate de .*R, pour le naif de R
                 AstI astU = algo.equals("unepasse")
                     ? MatcherUnePasse.envelopper(ast)
                     : ast;
 
-                ConstructionAutomate auto = new ConstructionAutomate(astU);
+                ConstructionAutomate cons = new ConstructionAutomate(astU);
 
                 matcher = algo.equals("unepasse")
-                    ? new MatcherUnePasse(auto.getAfdMinimal())
-                    : new MatcherNaif(auto.getAfdMinimal());
+                    ? new MatcherUnePasse(cons.getAfdMinimal())
+                    : new MatcherNaif(cons.getAfdMinimal());
 
-                algoUtilise = algo.equals("unepasse")
+                nomAlgo = algo.equals("unepasse")
                     ? "Automate une passe"
                     : "Automate naif";
             }
             else {
-                System.out.println("Algorithme inconnu : " + algo);
+                System.err.println("Algorithme inconnu : " + algo);
                 return;
             }
 
             FileSearcher rech = new FileSearcher(matcher);
             ResultatRecherche res;
 
+            //on lit le fichier en UTF-8 pour que les accents et les apostrophes soit bien lus
             try (BufferedReader lect =
                     Files.newBufferedReader(Path.of(fich), StandardCharsets.UTF_8)) {
 
                 res = rech.rechercher(lect);
             }
-            System.out.println();
-            System.out.println("Algorithme utilise : " + algoUtilise);
-            System.out.println();
+
+            // l'algo et le nombre de lignes vont sur stder pour que stdout ait seulment les lignes trouvees, comme grep
+            System.err.println();
+            System.err.println("Algorithme utilise : " + nomAlgo);
+            System.err.println();
 
             for (ResultatRecherche.LigneTrouvee l : res.getLignes()) {
                 System.out.println(l.getTexte());
             }
 
-            System.out.println();
-            System.out.println("Nombre de lignes trouvees : " + res.getNombreTrouvees());
+            System.err.println();
+            System.err.println("Nombre de lignes trouvees : " + res.getNombreTrouvees());
 
         } catch (Exception e) {
+            // regex invalide, fichier introuvable ou texte pas en UTF-8 :on affiche l'erreur sur stderr
             System.err.println("Erreur : " + e.getMessage());
         }
     }

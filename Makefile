@@ -3,12 +3,13 @@
 # make test   : TestKmp, puis tests/verifier.sh s'il existe
 # make doc    : Javadoc HTML dans doc/
 # make bench  : banc de performances et figures (bench/README.md)
+# make dist   : make clean jar, puis l'archive de rendu (.zip)
 
 ANT ?= ant
 
-.PHONY: all compile jar test doc clean bench
+.PHONY: all compile jar test doc clean bench dist
 
 all: jar
 
-compile jar test doc clean bench:
+compile jar test doc clean bench dist:
 	$(ANT) $@

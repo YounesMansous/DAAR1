@@ -11,8 +11,11 @@
   ant clean      : supprime bin/, bin-tests/, doc/ et le jar
   ant bench      : banc de performances (bench/README.md) : CSV dans
                    resultats/, figures dans rapport/figures/
+  ant dist       : ant clean jar, puis l'archive de rendu
+                   daar-assignment-algorithm-FELLAGUE-MANSOUS.zip
 -->
-<project name="egrep-clone" default="jar" basedir=".">
+<project name="egrep-clone" default="jar" basedir="."
+         xmlns:unless="ant:unless">
 
     <property name="src.dir"        value="src"/>
     <property name="tests.dir"      value="tests"/>
@@ -23,6 +26,9 @@
     <property name="bench.dir"      value="bench"/>
     <property name="bin.bench.dir"  value="bin-bench"/>
     <property name="genere.dir"     value="bench/genere"/>
+    <property name="dist.nom"
+              value="daar-assignment-algorithm-FELLAGUE-MANSOUS"/>
+    <property name="rapport.pdf"    value="rapport/rapport.pdf"/>
 
     <!-- Bytecode Java 11 (version de classe 55) : le jar tourne
          sur n'importe quel Java 11 ou plus -->
@@ -188,6 +194,52 @@
             <arg value="${bench.dir}/graphiques.py"/>
         </exec>
         <delete dir="${genere.dir}"/>
+    </target>
+
+    <!-- Archive de rendu, avec un dossier racine du même nom. On part
+         d'un build propre (clean puis jar) : ni bin*/, ni doc/, ni
+         bench/genere/ ne peuvent s'y glisser. Les sources LaTeX du
+         rapport n'y sont pas, seulement le PDF et les figures. Si le
+         PDF manque, l'archive est faite quand même, avec un
+         avertissement. Les scripts .sh restent exécutables (filemode),
+         car Ant ne lit pas les droits des fichiers. -->
+    <target name="dist" depends="clean, jar"
+            description="Archive de rendu ${dist.nom}.zip">
+        <available file="${rapport.pdf}" property="rapport.present"/>
+        <delete file="${dist.nom}.zip"/>
+        <zip destfile="${dist.nom}.zip">
+            <zipfileset dir="." prefix="${dist.nom}"
+                        excludes="**/*.sh">
+                <include name="${jar.file}"/>
+                <include name="README.md"/>
+                <include name="build.xml"/>
+                <include name="Makefile"/>
+                <include name="${rapport.pdf}"/>
+                <include name="rapport/figures/**"/>
+                <include name="${src.dir}/**"/>
+                <include name="${tests.dir}/**"/>
+                <include name="${bench.dir}/**"/>
+                <include name="data/**"/>
+                <include name="resultats/**"/>
+                <exclude name="${genere.dir}/**"/>
+                <exclude name="**/__pycache__/**"/>
+                <exclude name="**/*.class"/>
+                <exclude name="**/*.aux"/>
+                <exclude name="**/*.log"/>
+                <exclude name="**/*.out"/>
+                <exclude name="**/*.toc"/>
+                <exclude name="**/*.synctex.gz"/>
+                <exclude name="**/*.fls"/>
+                <exclude name="**/*.fdb_latexmk"/>
+            </zipfileset>
+            <zipfileset dir="." prefix="${dist.nom}" filemode="755">
+                <include name="${tests.dir}/*.sh"/>
+            </zipfileset>
+        </zip>
+        <echo level="warning" unless:set="rapport.present">
+ATTENTION : ${rapport.pdf} est absent.
+L'archive ${dist.nom}.zip a été faite SANS le rapport.
+Placez le PDF dans ${rapport.pdf}, puis relancez ant dist.</echo>
     </target>
 
 </project>

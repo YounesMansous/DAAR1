@@ -98,4 +98,4 @@ Les quatre premiers sont hors de l'ERE simplifiée du sujet ; le dernier concern
 
 ## Auteurs
 
-NOM1, NOM2
+FELLAGUE Moustafa, MANSOUS Younes

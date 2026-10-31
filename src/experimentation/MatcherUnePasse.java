@@ -3,7 +3,6 @@ package experimentation;
 
 import ast.AstFactory;
 import ast.interfaces.AstI;
-
 import automate.Afd;
 import automate.Etat;
 

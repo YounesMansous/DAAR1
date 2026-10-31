@@ -3,7 +3,6 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
-
 import ast.interfaces.AstI;
 import automate.ConstructionAutomate;
 import experimentation.Matcher;

@@ -66,4 +66,4 @@ Pour les temps : `ant pirecas` (environ 4 minutes) compare le naïf et l'une pas
 
 ## Auteurs
 
-FELLAGUE Moustafa, MANSOUS Younes
+FELLAGUE Moustafa 21401043, MANSOUS Younes 21406000

@@ -5,7 +5,6 @@ import java.nio.file.*;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.regex.Pattern;
-
 import ast.interfaces.AstI;
 import automate.ConstructionAutomate;
 import experimentation.Matcher;

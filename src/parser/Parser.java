@@ -12,7 +12,6 @@ public class Parser {
     public Parser(String re){
         this.re = re;
     }
-
     public AstI parse() {
         AstI ast = parseExpression();
 
@@ -38,13 +37,11 @@ public class Parser {
 
             gauche = AstFactory.createOr(gauche, droite);
         }
-
         return gauche;
     }
 
     // concat ::= repeat+ | (vide). Une concaténation vide (fin de la
-    // regex, « | » ou « ) ») donne un nœud mot vide, comme grep -E
-    // pour « », « a| », « |a », « a||b » et « () ».
+    // regex ou | ou ) donne un nœud mot vide, comme grep -E
     private AstI parseConcat() {
         if (finDeConcat()) {
             return AstFactory.createVide();
